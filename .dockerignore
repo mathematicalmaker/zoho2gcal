@@ -1,0 +1,29 @@
+# Don't copy local env or secrets into the image
+.env
+.env.*
+!.env.example
+secrets/*
+!secrets/README.md
+!secrets/private.env.example
+
+# Python / build
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Git / docs / assets (optional; include if you want images in image)
+.git/
+.gitignore
+*.md
+!README.md
+images/
+
+# Tests (not needed at runtime)
+tests/
+
+# Docker (we copy docker/ explicitly in Dockerfile)
+# docker/

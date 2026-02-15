@@ -1,0 +1,2 @@
+# z2g: run sync every 15 minutes (edit DATA_DIR if your mount path differs)
+*/15 * * * * env DATA_DIR=/data /app/.venv/bin/z2g run
