@@ -34,12 +34,12 @@ uv run z2g sync --since=-7d --until=+90d
 
 ### Quick start (Docker)
 
-No local Python or uv: use Docker only. Create a data directory, mount it, and run one-off commands to complete setup (Zoho exchange code, list calendars, Google auth `--manual`). When config is OK, start the container with `Z2G_CRON_ENABLED=1` for scheduled syncs. See [Docker](#docker) for the full flow.
+No local Python or uv: use Docker only. Create a data directory, mount it, and run one-off commands to complete setup (Zoho exchange code, list calendars, Google auth `--manual`). Run the container once to verify auth/scopes; set `ZOHO_CALENDAR_UID` and `GOOGLE_CALENDAR_ID` before enabling cron (sync/run require them). See [Docker](#docker) for the full flow.
 
 ```bash
 docker build -t zoho2gcal .
 mkdir -p data data/secrets && cp .env.example data/.env && cp secrets/private.env.example data/secrets/private.env
-docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal   # runs verify; fix any errors, then enable cron
+docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal   # runs verify (auth/scopes); set calendar IDs before enabling cron
 ```
 
 ## Setup
@@ -195,7 +195,7 @@ uv run z2g sync --delete-missing
 | `zoho-exchange-code` | Exchange Zoho auth code → refresh token |
 | `list-zoho-calendars` | Show Zoho calendar UIDs |
 | `list-google-calendars` | Show Google calendar IDs |
-| `verify` | Check config and test Zoho + Google connections/scopes |
+| `verify` | Check auth and Zoho + Google connections/scopes (sync/run also require calendar IDs) |
 | `zoho-token` | Print Zoho access token (debug) |
 
 ## Environment Variables
@@ -347,13 +347,13 @@ Mount that directory as `/data` and set `DATA_DIR=/data` so z2g finds `.env` and
 
 ### Default: verify and exit
 
-With no arguments and **no** `Z2G_CRON_ENABLED`, the container runs `z2g verify` (checks config + Zoho/Google connections and scopes) and exits:
+With no arguments and **no** `Z2G_CRON_ENABLED`, the container runs `z2g verify` (checks auth + Zoho/Google connections and scopes) and exits:
 
 ```bash
 docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal
 ```
 
-Fix any missing env or connection errors before enabling cron.
+Verify does **not** require `ZOHO_CALENDAR_UID` or `GOOGLE_CALENDAR_ID` (so you can run it after getting tokens but before picking calendars). Sync/run **do** require them, so set both before enabling cron or sync will fail. Fix any missing env or connection errors before enabling cron.
 
 ### One-off commands (Docker-only setup)
 

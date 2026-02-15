@@ -129,6 +129,9 @@ def cmd_verify() -> None:
         sys.exit(1)
 
     print("Config OK. Zoho and Google connections and scopes verified.")
+    missing_cal = [n for n in ("ZOHO_CALENDAR_UID", "GOOGLE_CALENDAR_ID") if not (os.environ.get(n) or "").strip()]
+    if missing_cal:
+        print(f"z2g verify: {', '.join(missing_cal)} not set; sync/run will fail until you set them.", file=sys.stderr)
 
 
 def cmd_zoho_events(*, since: Optional[str], until: Optional[str]) -> None:
