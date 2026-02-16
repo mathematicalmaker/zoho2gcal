@@ -59,9 +59,7 @@ In Portainer:
    - **Volumes** → **Bind**:
      - **Container**: `/data` (first column)
      - **Host**: `/volume1/docker/zoho2gcal` (or your path; second column)
-   - **Env**:
-     - `DATA_DIR` = `/data`
-     - Do **not** set `Z2G_CRON_ENABLED` yet.
+   - **Env**: Do **not** set `Z2G_CRON_ENABLED` yet (no other env needed; `DATA_DIR` defaults to `/data`).
 6. Do **not** set a custom command (leave empty so the image runs its default: `z2g verify`).
 7. Deploy the container.
 
@@ -78,21 +76,20 @@ You need to run a few one-off z2g commands with the **same** data volume. In Por
 1. In Zoho API Console (Self Client) generate a one-time code.
 2. In Portainer: **Containers** → **Add container** (temporary).
    - **Image**: same `zoho2gcal:latest`.
-   - **Volumes**: same bind (`/volume1/docker/zoho2gcal` → `/data`).
-   - **Env**: `DATA_DIR` = `/data`.
+   - **Volumes**: same bind (Container `/data`, Host `/volume1/docker/zoho2gcal`).
    - **Command**: `zoho-exchange-code --code YOUR_CODE` (replace `YOUR_CODE` with the code).
 3. Deploy and check **Logs** for the line `ZOHO_REFRESH_TOKEN=...`.
 4. Add that line to **`secrets/private.env`** on the NAS (edit in File Station).
 
 **Zoho calendar UID**
 
-1. Add container again (or reuse a temporary one) with same image, volume, and env.
+1. Add container again (or reuse a temporary one) with same image and volume.
 2. **Command**: `list-zoho-calendars`.
 3. Check logs, note the UID you want, set `ZOHO_CALENDAR_UID=...` in **`secrets/private.env`**.
 
 **Google token (manual OAuth)**
 
-1. Add container with same image, volume, env.
+1. Add container with same image and volume.
 2. **Command**: `google-auth --manual`.
 3. Enable **Interactive** and **TTY** (if Portainer offers them for this run).
 4. Open the URL from the logs in a browser, authorize, then copy the **full redirect URL** from the address bar and paste it into the container’s console when prompted. The container will write **`secrets/google_token.json`** into the data folder.
@@ -102,7 +99,7 @@ You need to run a few one-off z2g commands with the **same** data volume. In Por
 
 **Google calendar ID**
 
-1. Add container, same image/volume/env.
+1. Add container with same image and volume.
 2. **Command**: `list-google-calendars`.
 3. From logs, set `GOOGLE_CALENDAR_ID=...` in **`secrets/private.env`**.
 
@@ -140,7 +137,6 @@ services:
     container_name: z2g
     restart: unless-stopped
     environment:
-      - DATA_DIR=/data
       - Z2G_CRON_ENABLED=1
     volumes:
       - /volume1/docker/zoho2gcal:/data

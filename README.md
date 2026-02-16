@@ -38,7 +38,7 @@ No local Python or uv: use Docker only. Create a data directory, mount it, and r
 
 ```bash
 docker build -t zoho2gcal .
-mkdir -p data && docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal   # bootstraps .env + secrets if missing; runs verify
+mkdir -p data && docker run --rm -v "$(pwd)/data:/data" zoho2gcal   # bootstraps .env + secrets if missing; runs verify
 ```
 
 ## Setup
@@ -216,7 +216,7 @@ uv run z2g sync --delete-missing
 | `GOOGLE_REMINDERS` | No | Override reminders, e.g. `popup:10,email:30` |
 | `Z2G_DELETE_MISSING` | No | Set to `1` to enable delete-missing behavior |
 | `Z2G_VERBOSE` | No | Set to `1` for verbose logs |
-| `DATA_DIR` / `Z2G_DATA_DIR` | No | Use this path as project root for `.env` and `secrets/` (e.g. Docker mount) |
+| `DATA_DIR` / `Z2G_DATA_DIR` | No | Project root for `.env` and `secrets/`; defaults to `/data` (only set if your Docker mount path differs) |
 | `SYNC_SINCE` / `SYNC_UNTIL` | No | Explicit range (e.g. `-7d`, `+90d`); overrides `SYNC_LOOKBACK_DAYS` / `SYNC_LOOKAHEAD_DAYS` when set |
 | `Z2G_GOOGLE_AUTH_MANUAL` | No | Set to `1` to use manual (paste URL) Google auth |
 | `Z2G_CRON_ENABLED` | No | Set to `1` in Docker to start supercronic (scheduled syncs); default runs `verify` and exits |
@@ -344,14 +344,14 @@ cp .env.example data/.env
 cp secrets/private.env.example data/secrets/private.env
 ```
 
-Mount the directory as `/data` and set `DATA_DIR=/data` so z2g finds `.env` and `secrets/`.
+Mount the directory as `/data` so z2g finds `.env` and `secrets/` (defaults to `/data`; set `DATA_DIR` only if your mount path differs).
 
 ### Default: verify and exit
 
 With no arguments and **no** `Z2G_CRON_ENABLED`, the container runs `z2g verify` (checks auth + Zoho/Google connections and scopes) and exits:
 
 ```bash
-docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal
+docker run --rm -v "$(pwd)/data:/data" zoho2gcal
 ```
 
 Verify does **not** require `ZOHO_CALENDAR_UID` or `GOOGLE_CALENDAR_ID` (so you can run it after getting tokens but before picking calendars). Sync/run **do** require them, so set both before enabling cron or sync will fail. Fix any missing env or connection errors before enabling cron.
@@ -364,25 +364,25 @@ Run any z2g command by passing it after the image name. Use these to complete se
 
 2. **Zoho refresh token:** Generate a code in Zoho (Generate Code tab), then:
    ```bash
-   docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal zoho-exchange-code --code YOUR_CODE
+   docker run --rm -v "$(pwd)/data:/data" zoho2gcal zoho-exchange-code --code YOUR_CODE
    ```
    Add the printed `ZOHO_REFRESH_TOKEN=...` line to `data/secrets/private.env`.
 
 3. **Zoho calendar UID:**
    ```bash
-   docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal list-zoho-calendars
+   docker run --rm -v "$(pwd)/data:/data" zoho2gcal list-zoho-calendars
    ```
    Set `ZOHO_CALENDAR_UID` in `data/secrets/private.env`.
 
 4. **Google token:** Use **`--manual`** in Docker (no local callback server). Run with **`-it`** so you can paste the redirect URL:
    ```bash
-   docker run -it --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal google-auth --manual
+   docker run -it --rm -v "$(pwd)/data:/data" zoho2gcal google-auth --manual
    ```
    Open the printed URL in a browser, authorize, then copy the full URL from the address bar (even if the page says "can’t be reached") and paste it into the terminal.
 
 5. **Google calendar ID:**
    ```bash
-   docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal list-google-calendars
+   docker run --rm -v "$(pwd)/data:/data" zoho2gcal list-google-calendars
    ```
    Set `GOOGLE_CALENDAR_ID` in `data/secrets/private.env`.
 
@@ -396,7 +396,6 @@ When config is OK, start the container with **`Z2G_CRON_ENABLED=1`**. The entryp
 docker run -d \
   --name z2g \
   -v "$(pwd)/data:/data" \
-  -e DATA_DIR=/data \
   -e Z2G_CRON_ENABLED=1 \
   zoho2gcal
 ```
