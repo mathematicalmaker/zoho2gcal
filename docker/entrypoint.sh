@@ -19,6 +19,9 @@ fi
 if [ ! -f "${DATA_DIR}/secrets/private.env.example" ]; then
   cp /app/secrets/private.env.example "${DATA_DIR}/secrets/private.env.example"
 fi
+if [ ! -f "${DATA_DIR}/secrets/README.md" ]; then
+  cp /app/secrets/README.md "${DATA_DIR}/secrets/README.md"
+fi
 
 # If the user passed a command, run z2g with it (one-off: list-zoho-calendars, google-auth --manual, etc.)
 if [ $# -gt 0 ]; then

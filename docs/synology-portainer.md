@@ -13,19 +13,11 @@ These steps get z2g running in Docker on a Synology NAS using Portainer. Try the
 
 ## 1. Get the image
 
-You need the `zoho2gcal` image on the NAS. Two options.
+You need the `zoho2gcal` image on the NAS. Three options.
 
-**Option A – Build on your PC and push to Docker Hub**
+**Option A – Pull from GitHub Container Registry (easiest)**
 
-On a machine with the repo and Docker:
-
-```bash
-cd /path/to/zoho2gcal
-docker build -t YOUR_DOCKERHUB_USER/zoho2gcal:latest .
-docker push YOUR_DOCKERHUB_USER/zoho2gcal:latest
-```
-
-In Portainer: **Images** → **Pull** → image: `YOUR_DOCKERHUB_USER/zoho2gcal:latest`.
+In Portainer: **Images** → **Pull** → image: `ghcr.io/mathematicalmaker/zoho2gcal:latest`. No build required; the image is built automatically on push to the repo.
 
 **Option B – Build in Portainer from Git**
 
@@ -36,6 +28,18 @@ In Portainer: **Images** → **Build a new image**:
 - **Image name**: `zoho2gcal:latest`
 
 Build and wait until the image appears.
+
+**Option C – Build on your PC and push to Docker Hub**
+
+On a machine with the repo and Docker:
+
+```bash
+cd /path/to/zoho2gcal
+docker build -t YOUR_DOCKERHUB_USER/zoho2gcal:latest .
+docker push YOUR_DOCKERHUB_USER/zoho2gcal:latest
+```
+
+In Portainer: **Images** → **Pull** → image: `YOUR_DOCKERHUB_USER/zoho2gcal:latest`.
 
 ---
 
@@ -53,7 +57,7 @@ In Portainer:
 
 1. **Containers** → **Add container**.
 2. **Name**: e.g. `z2g`.
-3. **Image**: `zoho2gcal:latest` (or `YOUR_DOCKERHUB_USER/zoho2gcal:latest`).
+3. **Image**: `ghcr.io/mathematicalmaker/zoho2gcal:latest` (or `zoho2gcal:latest` if you built in Portainer).
 4. **Restart policy**: `Unless stopped` (or `No` if you prefer to start it manually).
 5. **Advanced container settings**:
    - **Volumes** → **Bind**:

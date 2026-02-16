@@ -37,8 +37,8 @@ uv run z2g sync --since=-7d --until=+90d
 No local Python or uv: use Docker only. Create a data directory, mount it, and run one-off commands to complete setup (Zoho exchange code, list calendars, Google auth `--manual`). Run the container once to verify auth/scopes; set `ZOHO_CALENDAR_UID` and `GOOGLE_CALENDAR_ID` before enabling cron (sync/run require them). See [Docker](#docker) for the full flow.
 
 ```bash
-docker build -t zoho2gcal .
-mkdir -p data && docker run --rm -v "$(pwd)/data:/data" zoho2gcal   # bootstraps .env + secrets if missing; runs verify
+docker pull ghcr.io/mathematicalmaker/zoho2gcal:latest
+mkdir -p data && docker run --rm -v "$(pwd)/data:/data" ghcr.io/mathematicalmaker/zoho2gcal:latest   # bootstraps .env + secrets if missing; runs verify
 ```
 
 ## Setup
@@ -330,11 +330,21 @@ You can run z2g entirely in Docker (no local uv/Linux/WSL). The image uses **sup
 
 ### Build and data directory
 
+Use the image from [GitHub Container Registry](https://github.com/mathematicalmaker/zoho2gcal/pkgs/container/zoho2gcal) (no build required):
+
+```bash
+docker pull ghcr.io/mathematicalmaker/zoho2gcal:latest
+```
+
+Or build from source:
+
 ```bash
 docker build -t zoho2gcal .
 ```
 
-Create a data directory and mount it as `/data`. The container **bootstraps** missing files on startup: if `.env` or `secrets/private.env` don’t exist, they are created from built-in examples. Example files (`.env.example`, `secrets/private.env.example`) are also copied for reference. So you can start with an empty directory; no need for a local copy of the repo.
+In the examples below, `zoho2gcal` is the image name. If you pulled from GHCR, use `ghcr.io/mathematicalmaker/zoho2gcal:latest` instead (or run `docker tag ghcr.io/mathematicalmaker/zoho2gcal:latest zoho2gcal` once).
+
+Create a data directory and mount it as `/data`. The container **bootstraps** missing files on startup: if `.env` or `secrets/private.env` don’t exist, they are created from built-in examples. Example files (`.env.example`, `secrets/private.env.example`) and `secrets/README.md` are also copied for reference. So you can start with an empty directory; no need for a local copy of the repo.
 
 If you prefer to prepare manually (e.g. when developing locally):
 

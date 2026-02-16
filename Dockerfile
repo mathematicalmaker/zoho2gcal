@@ -23,7 +23,7 @@ RUN uv sync --frozen --no-dev
 
 # Docker assets and config templates (for bootstrap when DATA_DIR is empty)
 COPY .env.example /app/.env.example
-COPY secrets/private.env.example /app/secrets/private.env.example
+COPY secrets/private.env.example secrets/README.md /app/secrets/
 COPY docker/crontab.example docker/entrypoint.sh /app/docker/
 RUN chmod +x /app/docker/entrypoint.sh
 
