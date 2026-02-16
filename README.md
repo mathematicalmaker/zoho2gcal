@@ -38,8 +38,7 @@ No local Python or uv: use Docker only. Create a data directory, mount it, and r
 
 ```bash
 docker build -t zoho2gcal .
-mkdir -p data data/secrets && cp .env.example data/.env && cp secrets/private.env.example data/secrets/private.env
-docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal   # runs verify (auth/scopes); set calendar IDs before enabling cron
+mkdir -p data && docker run --rm -v "$(pwd)/data:/data" -e DATA_DIR=/data zoho2gcal   # bootstraps .env + secrets if missing; runs verify
 ```
 
 ## Setup
@@ -335,7 +334,9 @@ You can run z2g entirely in Docker (no local uv/Linux/WSL). The image uses **sup
 docker build -t zoho2gcal .
 ```
 
-Create a data directory and copy in config templates (paths in `.env` are relative to this dir):
+Create a data directory and mount it as `/data`. The container **bootstraps** missing files on startup: if `.env` or `secrets/private.env` don’t exist, they are created from built-in examples. Example files (`.env.example`, `secrets/private.env.example`) are also copied for reference. So you can start with an empty directory; no need for a local copy of the repo.
+
+If you prefer to prepare manually (e.g. when developing locally):
 
 ```bash
 mkdir -p data data/secrets
@@ -343,7 +344,7 @@ cp .env.example data/.env
 cp secrets/private.env.example data/secrets/private.env
 ```
 
-Mount that directory as `/data` and set `DATA_DIR=/data` so z2g finds `.env` and `secrets/`.
+Mount the directory as `/data` and set `DATA_DIR=/data` so z2g finds `.env` and `secrets/`.
 
 ### Default: verify and exit
 
