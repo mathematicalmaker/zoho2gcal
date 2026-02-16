@@ -424,6 +424,59 @@ docker exec -it z2g sh
 # /app/.venv/bin/z2g run
 ```
 
+### Synology NAS and Portainer
+
+Run z2g in Docker on a Synology NAS using Portainer. Use a shared folder for data (e.g. `docker/zoho2gcal`); we’ll call the path **`/volume1/docker/zoho2gcal`**—adjust if your volume or folder differs.
+
+**1. Get the image**
+
+- **Easiest:** In Portainer, **Images** → **Pull** → `ghcr.io/mathematicalmaker/zoho2gcal:latest`.
+- **Build in Portainer:** **Images** → **Build a new image** → URL: `https://github.com/mathematicalmaker/zoho2gcal.git`, Dockerfile path: `Dockerfile`, Image name: `zoho2gcal:latest`.
+- **From your PC:** Build and push to Docker Hub, then pull that image in Portainer.
+
+**2. Data folder**
+
+Create a folder on the NAS (e.g. `docker/zoho2gcal`). Leave it empty—the container will bootstrap `.env` and `secrets/private.env`. Add your **Google client secret JSON** as `secrets/google_client_secret.json` (or run the container once to create `secrets/`, then add the file).
+
+**3. Run verify**
+
+**Containers** → **Add container** → Name: `z2g`, Image: `ghcr.io/mathematicalmaker/zoho2gcal:latest` (or `zoho2gcal:latest` if you built). **Volumes** → Bind: Container `/data`, Host `/volume1/docker/zoho2gcal`. Do not set `Z2G_CRON_ENABLED`. Deploy and check **Logs**; fix any missing env or files.
+
+**4. Complete setup**
+
+Run one-off commands with the same image and volume (new container each time, or use **Console** on an existing container):
+
+- **Zoho refresh token:** Command `zoho-exchange-code --code YOUR_CODE` → add printed `ZOHO_REFRESH_TOKEN=...` to `secrets/private.env`.
+- **Zoho calendar UID:** Command `list-zoho-calendars` → set `ZOHO_CALENDAR_UID` in `secrets/private.env`.
+- **Google token:** Command `google-auth --manual`; enable Interactive + TTY, open URL, paste redirect URL. Or start a container with `sleep 3600`, open Console, run `/app/.venv/bin/z2g google-auth --manual`.
+- **Google calendar ID:** Command `list-google-calendars` → set `GOOGLE_CALENDAR_ID` in `secrets/private.env`.
+
+Run the main container again to verify; then set both calendar IDs if the warning appeared.
+
+**5. Enable cron**
+
+Edit the `z2g` container → **Env** → add `Z2G_CRON_ENABLED` = `1` → **Redeploy**. The container will create `crontab` in the data folder (edit it on the NAS to change the schedule). To stop cron, remove the env var and redeploy.
+
+**6. Optional: stack**
+
+**Stacks** → **Add stack**; use the image and same volume. Example:
+
+```yaml
+services:
+  z2g:
+    image: ghcr.io/mathematicalmaker/zoho2gcal:latest
+    container_name: z2g
+    restart: unless-stopped
+    environment:
+      - Z2G_CRON_ENABLED=1
+    volumes:
+      - /volume1/docker/zoho2gcal:/data
+```
+
+One-off setup commands still need a separate container or console with the same volume.
+
+**Troubleshooting:** Missing env → check `.env` and `secrets/private.env` exist and volume is `/data`. File not found for Google client secret → add `secrets/google_client_secret.json`. Sync fails after enabling cron → set `ZOHO_CALENDAR_UID` and `GOOGLE_CALENDAR_ID` in `secrets/private.env`. Path on Synology → use File Station or Control Panel → Shared Folder to see the path.
+
 ## How It Works
 
 - Mirrored events have no `attendees` field (no RSVP, no Gmail exposure).
