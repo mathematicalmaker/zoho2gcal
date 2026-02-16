@@ -22,6 +22,12 @@ fi
 if [ ! -f "${DATA_DIR}/secrets/README.md" ]; then
   cp /app/secrets/README.md "${DATA_DIR}/secrets/README.md"
 fi
+if [ ! -f "${DATA_DIR}/README.md" ]; then
+  cp /app/README.md "${DATA_DIR}/README.md"
+fi
+if [ ! -f "${DATA_DIR}/crontab.example" ]; then
+  cp /app/docker/crontab.example "${DATA_DIR}/crontab.example"
+fi
 
 # If the user passed a command, run z2g with it (one-off: list-zoho-calendars, google-auth --manual, etc.)
 if [ $# -gt 0 ]; then
