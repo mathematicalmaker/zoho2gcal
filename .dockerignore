@@ -20,6 +20,7 @@ dist/
 .gitignore
 *.md
 !README.md
+docs/
 images/
 
 # Tests (not needed at runtime)
