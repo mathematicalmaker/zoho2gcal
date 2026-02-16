@@ -344,7 +344,7 @@ docker build -t zoho2gcal .
 
 In the examples below, `zoho2gcal` is the image name. If you pulled from GHCR, use `ghcr.io/mathematicalmaker/zoho2gcal:latest` instead (or run `docker tag ghcr.io/mathematicalmaker/zoho2gcal:latest zoho2gcal` once).
 
-Create a data directory and mount it as `/data`. The container **bootstraps** missing files on startup: if `.env` or `secrets/private.env` don’t exist, they are created from built-in examples. For reference it also copies `README.md`, `.env.example`, `secrets/README.md`, `secrets/private.env.example`, and `crontab.example` when absent. So you can start with an empty directory; no need for a local copy of the repo.
+Create a data directory and mount it as `/data`. The container **bootstraps** on startup: if `.env` or `secrets/private.env` don’t exist, they are created from built-in examples (your config is never overwritten). Reference files—`README.md`, `.env.example`, `secrets/README.md`, `secrets/private.env.example`, and `crontab.example`—are **updated from the image on every start**, so pulling a new image gives you current docs and env templates.
 
 If you prefer to prepare manually (e.g. when developing locally):
 
