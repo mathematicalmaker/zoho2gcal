@@ -1,6 +1,6 @@
 # z2g — One-Way Zoho Calendar → Google Calendar Sync
 
-Mirrors Zoho Calendar events to a Google Calendar. One-way only (Zoho → Google). No attendees: mirrored events block time and show reminders, but do not expose your Gmail address or invite RSVPs.
+Mirrors Zoho Calendar events to a Google Calendar. One-way only (Zoho → Google). No attendees: mirrored events block time and show reminders, but does not expose your Gmail address or invite RSVPs.
 
 Useful when you receive calendar invites in Zoho via email aliases and want them to block your Google Calendar with notifications, without adding yourself as an attendee.
 
