@@ -34,8 +34,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/zoho2gcal
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,format=short,prefix=,enable={{is_default_branch}}
+            type=raw,value=latest
+            type=sha,format=short,prefix=
             type=semver,pattern=v{{version}}
 
       - name: Build and push
