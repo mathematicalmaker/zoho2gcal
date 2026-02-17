@@ -354,7 +354,7 @@ mkdir -p data data/secrets
 cp .env.example data/.env
 ```
 
-Mount the directory as `/data` so z2g finds `.env` and `secrets/` (defaults to `/data`; set `DATA_DIR` only if your mount path differs).
+Mount the directory as `/data` so z2g finds `.env` and `secrets/` (defaults to `/data`; set `DATA_DIR` only if your mount path differs). Docker-only env vars (`Z2G_SHELL`, `Z2G_CRON_ENABLED`, `DATA_DIR`) are set when you create the container—in **Portainer** use the **Env** tab; on the CLI use `-e VAR=value`.
 
 ### Default: verify and exit
 
