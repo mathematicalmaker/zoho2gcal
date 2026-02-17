@@ -55,7 +55,7 @@ def cmd_zoho_exchange_code(code: str, redirect_uri: str) -> None:
 
     refresh = data.get("refresh_token")
     if refresh:
-        print("Add this line to secrets/private.env:")
+        print("Add this line to .env:")
         print("")
         print("ZOHO_REFRESH_TOKEN=" + refresh)
     else:

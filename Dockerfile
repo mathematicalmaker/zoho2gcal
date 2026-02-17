@@ -1,7 +1,7 @@
 # z2g: one-way Zoho Calendar → Google Calendar sync (Docker + supercronic)
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates bash \
   && rm -rf /var/lib/apt/lists/*
 
 # Install supercronic (cron for containers)
@@ -23,7 +23,7 @@ RUN uv sync --frozen --no-dev
 
 # Docker assets and config templates (for bootstrap when DATA_DIR is empty)
 COPY README.md .env.example /app/
-COPY secrets/private.env.example secrets/README.md /app/secrets/
+COPY secrets/README.md /app/secrets/
 COPY docker/crontab.example docker/entrypoint.sh /app/docker/
 RUN chmod +x /app/docker/entrypoint.sh
 

@@ -13,7 +13,7 @@ def test_resolve_path_absolute(tmp_path, monkeypatch):
 
 def test_resolve_path_relative(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
-    assert config.resolve_path("secrets/private.env") == str((tmp_path / "secrets" / "private.env").resolve())
+    assert config.resolve_path("secrets/google_client_secret.json") == str((tmp_path / "secrets" / "google_client_secret.json").resolve())
 
 
 def test_verbose_enabled_false(monkeypatch):

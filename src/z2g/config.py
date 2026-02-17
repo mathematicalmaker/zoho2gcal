@@ -1,7 +1,7 @@
 """Environment and path configuration.
 
-Loads .env (or .env.example), then secrets/private.env if present.
-Resolves relative paths from project root.
+Loads .env (or .env.example). Resolves relative paths from project root.
+Credentials and paths go in .env; secrets/ holds the Google OAuth JSON files.
 
 If DATA_DIR or Z2G_DATA_DIR is set, that path is used as project root (for Docker).
 """
@@ -31,14 +31,9 @@ else:
         _env_path = find_dotenv(".env.example", usecwd=True)
     PROJECT_ROOT = Path(_env_path).resolve().parent if _env_path else Path.cwd()
 
-# Load base env
+# Load env
 if _env_path:
     load_dotenv(_env_path)
-
-# Auto-load secrets/private.env if it exists (overrides base)
-_private_env = PROJECT_ROOT / "secrets" / "private.env"
-if _private_env.exists():
-    load_dotenv(_private_env, override=True)
 
 
 def resolve_path(p: str) -> str:

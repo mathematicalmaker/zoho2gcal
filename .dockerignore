@@ -4,7 +4,6 @@
 !.env.example
 secrets/*
 !secrets/README.md
-!secrets/private.env.example
 
 # Python / build
 .venv/

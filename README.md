@@ -45,7 +45,7 @@ mkdir -p data && docker run --rm -v "$(pwd)/data:/data" ghcr.io/mathematicalmake
 
 If you don’t have [uv](https://docs.astral.sh/uv/) yet, install it from the [Astral getting started / installation](https://docs.astral.sh/uv/getting-started/installation/) page.
 
-Before starting: copy `.env.example` → `.env` and `secrets/private.env.example` → `secrets/private.env`.
+Before starting: copy `.env.example` → `.env` and fill in credentials.
 
 ### 1. Zoho (API Console + OAuth)
 
@@ -54,7 +54,7 @@ Before starting: copy `.env.example` → `.env` and `secrets/private.env.example
 
    ![Zoho: Choose Self Client](images/zoho-choose-self-client.png)
 
-3. Open the **Client Secret** tab and copy **Client ID** and **Client Secret** into `secrets/private.env` as `ZOHO_CLIENT_ID` and `ZOHO_CLIENT_SECRET`.
+3. Open the **Client Secret** tab and copy **Client ID** and **Client Secret** into `.env` as `ZOHO_CLIENT_ID` and `ZOHO_CLIENT_SECRET`.
 
    ![Zoho Client Secret tab](images/zoho-client-secret-tab.png)
 
@@ -72,9 +72,9 @@ Before starting: copy `.env.example` → `.env` and `secrets/private.env.example
 uv run z2g zoho-exchange-code --code YOUR_COPIED_CODE
 ```
 
-   Add the printed `ZOHO_REFRESH_TOKEN=...` line to `secrets/private.env`.
+   Add the printed `ZOHO_REFRESH_TOKEN=...` line to `.env`.
 
-7. Verify: `uv run z2g list-zoho-calendars`. Note the calendar UID you want to sync and set `ZOHO_CALENDAR_UID` in `secrets/private.env`.
+7. Verify: `uv run z2g list-zoho-calendars`. Note the calendar UID you want to sync and set `ZOHO_CALENDAR_UID` in `.env`.
 
 If the exchange fails with a `redirect_uri` error, try `--redirect-uri urn:ietf:wg:oauth:2.0:oob` (or the value shown for your Self Client).
 
@@ -124,7 +124,7 @@ If the exchange fails with a `redirect_uri` error, try `--redirect-uri urn:ietf:
 
 ### 3. Environment and Secrets
 
-Edit `secrets/private.env` as you complete the steps above and below:
+Edit `.env` as you complete the steps above and below:
    - `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ZOHO_CALENDAR_UID` (from Zoho step 7)
    - `GOOGLE_CALENDAR_ID` (from Google step 4)
 
@@ -149,7 +149,7 @@ Token is written to `secrets/google_token.json`. The refresh token inside is lon
 uv run z2g list-google-calendars
 ```
 
-Note the calendar ID you want to sync and set `GOOGLE_CALENDAR_ID` in `secrets/private.env`.
+Note the calendar ID you want to sync and set `GOOGLE_CALENDAR_ID` in `.env`.
 
 ## Usage
 
@@ -220,6 +220,7 @@ uv run z2g sync --delete-missing
 | `SYNC_SINCE` / `SYNC_UNTIL` | No | Explicit range (e.g. `-7d`, `+90d`); overrides `SYNC_LOOKBACK_DAYS` / `SYNC_LOOKAHEAD_DAYS` when set |
 | `Z2G_GOOGLE_AUTH_MANUAL` | No | Set to `1` to use manual (paste URL) Google auth |
 | `Z2G_CRON_ENABLED` | No | Set to `1` in Docker to start supercronic (scheduled syncs); default runs `verify` and exits |
+| `Z2G_SHELL` | No | Set to `1` in Docker to drop into bash and keep container running (for `docker exec`, setup, debugging) |
 
 All sync/run options except `--dry-run` can be set via env for Docker/supercronic.
 
@@ -344,14 +345,13 @@ docker build -t zoho2gcal .
 
 In the examples below, `zoho2gcal` is the image name. If you pulled from GHCR, use `ghcr.io/mathematicalmaker/zoho2gcal:latest` instead (or run `docker tag ghcr.io/mathematicalmaker/zoho2gcal:latest zoho2gcal` once).
 
-Create a data directory and mount it as `/data`. The container **bootstraps** on startup: if `.env` or `secrets/private.env` don’t exist, they are created from built-in examples (your config is never overwritten). Reference files—`README.md`, `.env.example`, `secrets/README.md`, `secrets/private.env.example`, and `crontab.example`—are **updated from the image on every start**, so pulling a new image gives you current docs and env templates.
+Create a data directory and mount it as `/data`. The container **bootstraps** on startup: if `.env` doesn’t exist, it is created from the built-in example (your config is never overwritten). Reference files—`README.md`, `.env.example`, `secrets/README.md`, and `crontab.example`—are **updated from the image on every start**, so pulling a new image gives you current docs and env templates.
 
 If you prefer to prepare manually (e.g. when developing locally):
 
 ```bash
 mkdir -p data data/secrets
 cp .env.example data/.env
-cp secrets/private.env.example data/secrets/private.env
 ```
 
 Mount the directory as `/data` so z2g finds `.env` and `secrets/` (defaults to `/data`; set `DATA_DIR` only if your mount path differs).
@@ -370,19 +370,19 @@ Verify does **not** require `ZOHO_CALENDAR_UID` or `GOOGLE_CALENDAR_ID` (so you 
 
 Run any z2g command by passing it after the image name. Use these to complete setup without uv on the host:
 
-1. **Zoho:** Put `ZOHO_CLIENT_ID` and `ZOHO_CLIENT_SECRET` in `data/secrets/private.env` (from Zoho API Console → Self Client → Client Secret tab). Download the Google client secret JSON from GCP and save as `data/secrets/google_client_secret.json`. Ensure `data/.env` has `GOOGLE_CLIENT_SECRET_JSON=./secrets/google_client_secret.json` and `GOOGLE_TOKEN_JSON=./secrets/google_token.json`.
+1. **Zoho:** Put `ZOHO_CLIENT_ID` and `ZOHO_CLIENT_SECRET` in `data/.env` (from Zoho API Console → Self Client → Client Secret tab). Download the Google client secret JSON from GCP and save as `data/secrets/google_client_secret.json`. Ensure `data/.env` has `GOOGLE_CLIENT_SECRET_JSON=./secrets/google_client_secret.json` and `GOOGLE_TOKEN_JSON=./secrets/google_token.json`.
 
 2. **Zoho refresh token:** Generate a code in Zoho (Generate Code tab), then:
    ```bash
    docker run --rm -v "$(pwd)/data:/data" zoho2gcal zoho-exchange-code --code YOUR_CODE
    ```
-   Add the printed `ZOHO_REFRESH_TOKEN=...` line to `data/secrets/private.env`.
+   Add the printed `ZOHO_REFRESH_TOKEN=...` line to `data/.env`.
 
 3. **Zoho calendar UID:**
    ```bash
    docker run --rm -v "$(pwd)/data:/data" zoho2gcal list-zoho-calendars
    ```
-   Set `ZOHO_CALENDAR_UID` in `data/secrets/private.env`.
+   Set `ZOHO_CALENDAR_UID` in `data/.env`.
 
 4. **Google token:** Use **`--manual`** in Docker (no local callback server). Run with **`-it`** so you can paste the redirect URL:
    ```bash
@@ -394,7 +394,7 @@ Run any z2g command by passing it after the image name. Use these to complete se
    ```bash
    docker run --rm -v "$(pwd)/data:/data" zoho2gcal list-google-calendars
    ```
-   Set `GOOGLE_CALENDAR_ID` in `data/secrets/private.env`.
+   Set `GOOGLE_CALENDAR_ID` in `data/.env`.
 
 6. **Verify:** Run again with no args; you should see "Config OK. Zoho and Google connections and scopes verified."
 
@@ -414,12 +414,13 @@ To disable cron again, stop the container and run without `Z2G_CRON_ENABLED=1` (
 
 ### Shell into the container
 
-To edit config manually (e.g. vi) or run z2g by hand:
+The container exits after `verify` by default, so `docker exec` won’t work until it’s running. Start it with **`Z2G_SHELL=1`** to drop into bash and keep it running:
 
 ```bash
-docker exec -it z2g sh
+docker run -d --name z2g -v "$(pwd)/data:/data" -e Z2G_SHELL=1 zoho2gcal
+docker exec -it z2g bash
 # Then, e.g.:
-# vi /data/secrets/private.env
+# vi /data/.env
 # /app/.venv/bin/z2g verify
 # /app/.venv/bin/z2g run
 ```
@@ -436,7 +437,7 @@ Run z2g in Docker on a Synology NAS using Portainer. Use a shared folder for dat
 
 **2. Data folder**
 
-Create a folder on the NAS (e.g. `docker/zoho2gcal`). Leave it empty—the container will bootstrap `.env` and `secrets/private.env`. Add your **Google client secret JSON** as `secrets/google_client_secret.json` (or run the container once to create `secrets/`, then add the file).
+Create a folder on the NAS (e.g. `docker/zoho2gcal`). Leave it empty—the container will bootstrap `.env`. Add your **Google client secret JSON** as `secrets/google_client_secret.json` (or run the container once to create `secrets/`, then add the file).
 
 **3. Run verify**
 
@@ -446,10 +447,10 @@ Create a folder on the NAS (e.g. `docker/zoho2gcal`). Leave it empty—the conta
 
 Run one-off commands with the same image and volume (new container each time, or use **Console** on an existing container):
 
-- **Zoho refresh token:** Command `zoho-exchange-code --code YOUR_CODE` → add printed `ZOHO_REFRESH_TOKEN=...` to `secrets/private.env`.
-- **Zoho calendar UID:** Command `list-zoho-calendars` → set `ZOHO_CALENDAR_UID` in `secrets/private.env`.
-- **Google token:** Command `google-auth --manual`; enable Interactive + TTY, open URL, paste redirect URL. Or start a container with `sleep 3600`, open Console, run `/app/.venv/bin/z2g google-auth --manual`.
-- **Google calendar ID:** Command `list-google-calendars` → set `GOOGLE_CALENDAR_ID` in `secrets/private.env`.
+- **Zoho refresh token:** Command `zoho-exchange-code --code YOUR_CODE` → add printed `ZOHO_REFRESH_TOKEN=...` to `.env`.
+- **Zoho calendar UID:** Command `list-zoho-calendars` → set `ZOHO_CALENDAR_UID` in `.env`.
+- **Google token:** Command `google-auth --manual`; enable Interactive + TTY, open URL, paste redirect URL. Or start a container with `Z2G_SHELL=1`, open Console, run `/app/.venv/bin/z2g google-auth --manual`.
+- **Google calendar ID:** Command `list-google-calendars` → set `GOOGLE_CALENDAR_ID` in `.env`.
 
 Run the main container again to verify; then set both calendar IDs if the warning appeared.
 
@@ -475,7 +476,7 @@ services:
 
 One-off setup commands still need a separate container or console with the same volume.
 
-**Troubleshooting:** Missing env → check `.env` and `secrets/private.env` exist and volume is `/data`. File not found for Google client secret → add `secrets/google_client_secret.json`. Sync fails after enabling cron → set `ZOHO_CALENDAR_UID` and `GOOGLE_CALENDAR_ID` in `secrets/private.env`. Path on Synology → use File Station or Control Panel → Shared Folder to see the path.
+**Troubleshooting:** Missing env → check `.env` exists and volume is `/data`. File not found for Google client secret → add `secrets/google_client_secret.json`. Sync fails after enabling cron → set `ZOHO_CALENDAR_UID` and `GOOGLE_CALENDAR_ID` in `.env`. Path on Synology → use File Station or Control Panel → Shared Folder to see the path.
 
 ## How It Works
 

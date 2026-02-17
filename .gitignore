@@ -27,7 +27,6 @@ wheels/
 ########################################
 secrets/*
 !secrets/README.md
-!secrets/private.env.example
 
 ########################################
 # OAuth / credentials

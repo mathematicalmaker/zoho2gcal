@@ -1,6 +1,6 @@
 """One-time exchange: Zoho auth code → refresh_token.
 
-Run during setup; output ZOHO_REFRESH_TOKEN goes into secrets/private.env.
+Run during setup; output ZOHO_REFRESH_TOKEN goes into .env.
 """
 from __future__ import annotations
 
