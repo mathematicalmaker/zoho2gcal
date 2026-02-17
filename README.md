@@ -485,6 +485,58 @@ One-off setup commands still need a separate container or console with the same 
 - `iCalUID` is stable for idempotent upserts.
 - Dry-run always checks for would-deletes; use `--delete-missing` to apply.
 
+## Appendix: Docker command reference
+
+Use this when the container was created once (e.g. in Portainer or with `docker run` **without** `--rm`) and you start/stop/exec it by name (e.g. `z2g`). Replace `/path/to/data` with your data path (e.g. `$(pwd)/data` or `/volume1/docker/zoho2gcal`).
+
+### Container already exists
+
+**Container not running:** Use `docker start z2g`. Behavior depends on how the container was created:
+
+- **Created with default** (no `Z2G_SHELL`, no `Z2G_CRON_ENABLED`): runs `z2g verify` and exits; container goes back to stopped. Use this to re-run verify after editing `.env`.
+- **Created with `Z2G_SHELL=1` or `Z2G_CRON_ENABLED=1`:** starts and stays running; you can then `docker exec` into it or leave cron running.
+
+| Purpose | Command |
+|--------|--------|
+| Start container | `docker start z2g` |
+| Stop container | `docker stop z2g` |
+| Restart container | `docker restart z2g` |
+| Shell into running container | `docker exec -it z2g bash` |
+| Run verify | `docker exec z2g /app/.venv/bin/z2g verify` |
+| Run one-off sync | `docker exec z2g /app/.venv/bin/z2g run` |
+| List Zoho calendars | `docker exec z2g /app/.venv/bin/z2g list-zoho-calendars` |
+| List Google calendars | `docker exec z2g /app/.venv/bin/z2g list-google-calendars` |
+| Google auth (manual) | `docker exec -it z2g /app/.venv/bin/z2g google-auth --manual` |
+| View logs | `docker logs z2g` |
+| View last 50 lines | `docker logs --tail 50 z2g` |
+| Follow logs | `docker logs -f z2g` |
+| Check status | `docker ps -a --filter name=z2g` |
+
+**Note:** `docker exec` only works while the container is **running**. For a default (verify-and-exit) container, it exits right after verify, so you’d need to start it with a long-running command (e.g. `Z2G_SHELL=1`) to exec in.
+
+### Create new containers (docker run)
+
+| Purpose | Command |
+|--------|--------|
+| Verify and exit (ephemeral, removed after) | `docker run --rm -v /path/to/data:/data zoho2gcal` |
+| Create + run: shell, keep running | `docker run -d --name z2g -v /path/to/data:/data -e Z2G_SHELL=1 zoho2gcal` |
+| Create + run: cron | `docker run -d --name z2g -v /path/to/data:/data -e Z2G_CRON_ENABLED=1 zoho2gcal` |
+| One-off: Zoho exchange code | `docker run --rm -v /path/to/data:/data zoho2gcal zoho-exchange-code --code YOUR_CODE` |
+| One-off: list Zoho calendars | `docker run --rm -v /path/to/data:/data zoho2gcal list-zoho-calendars` |
+| One-off: list Google calendars | `docker run --rm -v /path/to/data:/data zoho2gcal list-google-calendars` |
+| One-off: Google auth (manual) | `docker run -it --rm -v /path/to/data:/data zoho2gcal google-auth --manual` |
+
+**Flags:** `--rm` = remove when it exits. `-d` = run in background. `-it` = interactive TTY. `-e VAR=value` = set env. `-v host_path:/data` = bind data dir.
+
+### Other
+
+| Purpose | Command |
+|--------|--------|
+| Remove container | `docker stop z2g && docker rm z2g` |
+| Inspect container | `docker inspect z2g` |
+
+**Exiting:** From an **exec** shell, `exit` or Ctrl+D only ends that session; container keeps running. From the **main** process (if you started with `-it`), Ctrl+P then Ctrl+Q detaches; `exit` stops the container.
+
 ## License
 
 MIT
