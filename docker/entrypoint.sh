@@ -20,9 +20,10 @@ if [ $# -gt 0 ]; then
   exec /app/.venv/bin/z2g "$@"
 fi
 
-# Z2G_SHELL=1: drop into bash and keep container running (for docker exec, setup, debugging)
+# Z2G_SHELL=1: keep container running (for docker exec, setup, debugging)
+# Use sleep infinity so the process stays alive when started detached (-d); then docker exec -it z2g bash
 if [ "${Z2G_SHELL}" = "1" ] || [ "${Z2G_SHELL}" = "true" ] || [ "${Z2G_SHELL}" = "yes" ]; then
-  exec bash
+  exec sleep infinity
 fi
 
 # No args: either run supercronic (cron) or verify and exit
