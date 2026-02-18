@@ -240,10 +240,10 @@ def cmd_sync(
             action = "SKIP"
             if dry_run:
                 skips += 1
-                print(f"[DRY] {action}  {uid} -> {desired['iCalUID']}  (no changes)")
+                print(f"[DRY] {action}  {uid} -> {desired['iCalUID']}  (already in sync)")
                 continue
             # Real run: skip patch to reduce churn
-            print(f"skipped  {uid} -> {desired['iCalUID']}  (no changes)")
+            print(f"skipped  {uid} -> {desired['iCalUID']}  (already in sync)")
             continue
 
         action = "PATCH"
