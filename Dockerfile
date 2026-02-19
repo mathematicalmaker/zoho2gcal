@@ -23,7 +23,8 @@ COPY pyproject.toml uv.lock ./
 COPY src ./src
 ENV UV_NO_DEV=1
 RUN uv sync --frozen --no-dev
-ENV PATH="/app/.venv/bin:${PATH}"
+# Explicit PATH so z2g is available when shelling in (docker exec); avoid relying on ${PATH} at build time
+ENV PATH="/app/.venv/bin:/usr/local/bin:/usr/bin:/sbin:/bin"
 
 # Docker assets and config templates (for bootstrap when DATA_DIR is empty)
 COPY README.md .env.example /app/

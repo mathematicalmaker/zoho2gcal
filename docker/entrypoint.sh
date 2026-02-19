@@ -1,4 +1,6 @@
 #!/bin/sh
+# Ensure z2g is on PATH for cron and for shells (docker exec); image ENV can be overridden by base/runtime
+export PATH="/app/.venv/bin:${PATH:-/usr/local/bin:/usr/bin:/sbin:/bin}"
 DATA_DIR="${DATA_DIR:-/data}"
 
 # Bootstrap DATA_DIR: create .env and secrets/ from examples if missing
