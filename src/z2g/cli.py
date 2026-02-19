@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import sys
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .config import env, resolve_path, verbose_enabled
 from .zoho_auth import ZohoOAuth
@@ -84,12 +84,17 @@ def _sanitize_tsv(s: str) -> str:
 
 def cmd_list_google_calendars() -> None:
     g = GoogleCalendarClient(resolve_path(env("GOOGLE_TOKEN_JSON")))
-    print("Name\tCalendar_ID\tDefault_Reminders")
+    header = ("Name", "Calendar_ID", "Default_Reminders")
+    rows: List[Tuple[str, str, str]] = [header]
     for cal in g.list_calendars():
         reminders_str = format_default_reminders(cal.get("defaultReminders") or [])
         name = _sanitize_tsv(str(cal.get("summary") or ""))
         cid = _sanitize_tsv(str(cal.get("id") or ""))
-        print(f"{name}\t{cid}\t{reminders_str}")
+        rows.append((name, cid, reminders_str))
+    widths = [max(len(row[i]) for row in rows) for i in range(3)]
+    for row in rows:
+        line = "\t".join(row[i].ljust(widths[i]) for i in range(3))
+        print(line)
 
 
 def cmd_verify() -> None:

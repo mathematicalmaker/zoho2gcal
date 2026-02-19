@@ -197,7 +197,9 @@ uv run z2g sync --delete-missing
 | `verify` | Check auth and Zoho + Google connections/scopes (sync/run also require calendar IDs) |
 | `zoho-token` | Print Zoho access token (debug) |
 
-^1^ Formats well with `z2g list-google-calendars | column -t -s $'\t'`
+^1^ Formats well with:
+	 `z2g list-google-calendars | column -t -s $'\t'` or
+	 `z2g list-google-calendars | awk -F'\t' 'NR>1 {print $3}'`
 
 ## Environment Variables
 
