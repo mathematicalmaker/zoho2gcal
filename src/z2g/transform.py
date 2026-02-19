@@ -122,6 +122,24 @@ def parse_google_reminders(spec: str) -> Dict[str, Any]:
 
     return {"useDefault": False, "overrides": overrides}
 
+
+def format_default_reminders(default_reminders: List[Dict[str, Any]]) -> str:
+    """
+    Format calendar defaultReminders (list of {method, minutes}) as GOOGLE_REMINDERS-style string.
+    E.g. [{"method": "popup", "minutes": 10}] -> "popup:10"; [] or missing -> "<none>".
+    """
+    if not default_reminders:
+        return "<none>"
+    parts = []
+    for o in default_reminders:
+        m = (o.get("method") or "").strip().lower()
+        mins = o.get("minutes")
+        if m and mins is not None:
+            parts.append(f"{m}:{int(mins)}")
+    parts.sort()
+    return ",".join(parts)
+
+
 def build_google_mirror_event(
         ev: Dict[str, Any],
         *, 

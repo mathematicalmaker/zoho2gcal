@@ -6,6 +6,7 @@ import pytest
 from z2g.transform import (
     MIRROR_MARKER,
     build_google_mirror_event,
+    format_default_reminders,
     is_zoho_allday,
     iso_z,
     parse_google_reminders,
@@ -80,6 +81,21 @@ def test_parse_google_reminders_multiple():
     r = parse_google_reminders("popup:10,email:30")
     assert r["useDefault"] is False
     assert len(r["overrides"]) == 2
+
+
+def test_format_default_reminders_empty():
+    assert format_default_reminders([]) == "<none>"
+
+
+def test_format_default_reminders_single():
+    assert format_default_reminders([{"method": "popup", "minutes": 10}]) == "popup:10"
+
+
+def test_format_default_reminders_multiple():
+    assert (
+        format_default_reminders([{"method": "email", "minutes": 30}, {"method": "popup", "minutes": 10}])
+        == "email:30,popup:10"
+    )
 
 
 def test_build_google_mirror_event_no_attendees():

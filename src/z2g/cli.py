@@ -17,7 +17,7 @@ from .config import env, resolve_path, verbose_enabled
 from .zoho_auth import ZohoOAuth
 from .zoho_calendar import ZohoCalendarClient
 from .google_calendar import GoogleCalendarClient
-from .transform import iso_z, build_google_mirror_event, zoho_uid, parse_google_reminders
+from .transform import iso_z, build_google_mirror_event, zoho_uid, parse_google_reminders, format_default_reminders
 from .time_utils import compute_window
 from .sync_diff import Diff, diff_events, fmt_diff
 from . import alerting
@@ -77,10 +77,19 @@ def cmd_list_zoho_calendars() -> None:
         print(f"{c.get('calendar_uid') or c.get('uid')}\t{c.get('calendar_name') or c.get('name')}")
 
 
+def _sanitize_tsv(s: str) -> str:
+    """Replace tab/newline with space so piped output stays column-aligned (e.g. column -t, awk)."""
+    return (s or "").replace("\t", " ").replace("\n", " ").replace("\r", " ").strip()
+
+
 def cmd_list_google_calendars() -> None:
     g = GoogleCalendarClient(resolve_path(env("GOOGLE_TOKEN_JSON")))
+    print("Name\tCalendar_ID\tDefault_Reminders")
     for cal in g.list_calendars():
-        print(f"{cal.get('id')}\t{cal.get('summary')}")
+        reminders_str = format_default_reminders(cal.get("defaultReminders") or [])
+        name = _sanitize_tsv(str(cal.get("summary") or ""))
+        cid = _sanitize_tsv(str(cal.get("id") or ""))
+        print(f"{name}\t{cid}\t{reminders_str}")
 
 
 def cmd_verify() -> None:
