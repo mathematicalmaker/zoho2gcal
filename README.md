@@ -445,7 +445,7 @@ Run any z2g command by passing it after the image name. Use these to complete se
 
 ### Enable scheduled syncs (supercronic)
 
-When config is OK, start the container with **`Z2G_CRON_ENABLED=1`**. The entrypoint creates `data/crontab` from an example (run every 15 minutes) if it doesn’t exist; you can edit `data/crontab` to change the schedule:
+When config is OK, start the container with **`Z2G_CRON_ENABLED=1`**. The entrypoint creates `data/crontab` from an example (run every 15 minutes) if it doesn’t exist; you can edit `data/crontab` to change the schedule. **Restart the container** after editing the crontab for changes to take effect (e.g. `docker restart z2g`).
 
 ```bash
 docker run -d \
@@ -455,7 +455,7 @@ docker run -d \
   zoho2gcal
 ```
 
-To disable cron again, stop the container and run without `Z2G_CRON_ENABLED=1` (or remove it); the default is verify-and-exit. You can also edit `data/crontab` and comment out the line to pause syncs without changing env.
+To disable cron again, stop the container and run without `Z2G_CRON_ENABLED=1` (or remove it); the default is verify-and-exit. You can also edit `data/crontab` and comment out the line to pause syncs, then restart the container.
 
 ### Shell into the container
 
