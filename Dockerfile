@@ -27,6 +27,7 @@ RUN ln -s /app/.venv/bin/z2g /usr/local/bin/z2g
 
 # Docker assets and config templates (for bootstrap when DATA_DIR is empty)
 COPY README.md .env.example /app/
+COPY scripts/ /app/scripts/
 COPY secrets/README.md /app/secrets/
 COPY docker/crontab.example docker/entrypoint.sh /app/docker/
 RUN chmod +x /app/docker/entrypoint.sh

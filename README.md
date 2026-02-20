@@ -47,6 +47,14 @@ If you don’t have [uv](https://docs.astral.sh/uv/) yet, install it from the [A
 
 Before starting: copy `.env.example` → `.env` and fill in credentials.
 
+**Keeping .env in sync:** When `.env.example` changes (e.g. after a pull or upgrade), run from the project root:
+
+```bash
+uv run python scripts/sync_env.py
+```
+
+This rewrites `.env` using the **structure and comments** of the new `.env.example` but keeps **all existing values** from your `.env`; new keys get their example value. If you prefer to do it manually, diff `.env.example` and add any new variables to `.env`.
+
 ### 1. Zoho (API Console + OAuth)
 
 1. Go to [Zoho API Console](https://api-console.zoho.com/) and click **GET STARTED** (or sign in).
@@ -544,6 +552,7 @@ Use this when the container was created once (e.g. in Portainer or with `docker 
 | List Zoho calendars | `docker exec z2g /app/.venv/bin/z2g list-zoho-calendars` |
 | List Google calendars | `docker exec z2g /app/.venv/bin/z2g list-google-calendars` |
 | Google auth (manual) | `docker exec -it z2g /app/.venv/bin/z2g google-auth --manual` |
+| Sync .env from example (keep your values) | `docker exec z2g python3 /app/scripts/sync_env.py` |
 | View logs | `docker logs z2g` |
 | View last 50 lines | `docker logs --tail 50 z2g` |
 | Follow logs | `docker logs -f z2g` |
