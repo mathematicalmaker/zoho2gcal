@@ -334,8 +334,20 @@ def cmd_run(
             except Exception as webhook_err:
                 print(f"z2g: webhook failed: {webhook_err}", file=sys.stderr)
         raise
-    # Success: clear consecutive failures and persist state
+    # Success: if we were in failure state, send all-clear and clear last_alert_at so the next failure will alert
     state = alerting.load_state()
+    was_failing = state.get("last_status") == "error" or state.get("consecutive_failures", 0) > 0
+    url = os.environ.get("Z2G_ALERT_WEBHOOK_URL", "").strip()
+    if url and was_failing:
+        payload = alerting.build_all_clear_payload(
+            last_run=now_iso,
+            message="z2g run succeeded after previous failure(s).",
+        )
+        try:
+            alerting.send_webhook(url, payload)
+            state["last_alert_at"] = None  # allow next failure to trigger an alert
+        except Exception as webhook_err:
+            print(f"z2g: webhook (all-clear) failed: {webhook_err}", file=sys.stderr)
     state["last_run"] = now_iso
     state["last_status"] = "ok"
     state["consecutive_failures"] = 0

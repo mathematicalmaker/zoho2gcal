@@ -5,11 +5,8 @@ Alerts when: consecutive_failures >= min_failures, rate-limited, and (optionally
 Webhook: POST JSON to Z2G_ALERT_WEBHOOK_URL.
 
 Payload format (for docs and callers):
-  event: "z2g_alert"
-  consecutive_failures: int
-  last_error: str | null
-  last_run: str (ISO datetime)
-  message: str (human-readable)
+  Failure: event "z2g_alert"; consecutive_failures, last_error, last_run, message.
+  All-clear: event "z2g_all_clear"; last_run, message. Sent on first success after failure. Clears last_alert_at so the next failure will trigger an alert.
 """
 from __future__ import annotations
 
@@ -80,7 +77,8 @@ def save_state(state: dict[str, Any]) -> None:
 
 
 def should_alert(state: dict[str, Any], now: datetime | None = None) -> bool:
-    """True if we should send an alert: failures >= min, rate limit passed, and within alert hours (if set)."""
+    """True if we should send an alert: failures >= min, rate limit passed, and current local time inside alert window (if set).
+    Alert window: Z2G_ALERT_HOURS_START (inclusive) to Z2G_ALERT_HOURS_END (exclusive). Set both, or only one for open-ended."""
     now = now or datetime.now(timezone.utc)
     tz = _get_tz()
     if hasattr(now, "astimezone"):
@@ -103,12 +101,12 @@ def should_alert(state: dict[str, Any], now: datetime | None = None) -> bool:
         except Exception:
             pass
 
-    start_h = os.environ.get("Z2G_ALERT_HOURS_START")
-    end_h = os.environ.get("Z2G_ALERT_HOURS_END")
-    if start_h is not None and start_h.strip() != "" and end_h is not None and end_h.strip() != "":
+    start_h = (os.environ.get("Z2G_ALERT_HOURS_START") or "").strip()
+    end_h = (os.environ.get("Z2G_ALERT_HOURS_END") or "").strip()
+    if start_h or end_h:
         try:
-            start_hour = int(start_h.strip())
-            end_hour = int(end_h.strip())
+            start_hour = int(start_h) if start_h else 0
+            end_hour = int(end_h) if end_h else 24
             current_hour = now.hour
             if start_hour <= end_hour:
                 if current_hour < start_hour or current_hour >= end_hour:
@@ -116,7 +114,7 @@ def should_alert(state: dict[str, Any], now: datetime | None = None) -> bool:
             else:
                 if current_hour >= end_hour and current_hour < start_hour:
                     return False
-        except Exception:
+        except (ValueError, TypeError):
             pass
 
     return True
@@ -133,6 +131,15 @@ def build_payload(
         "event": "z2g_alert",
         "consecutive_failures": consecutive_failures,
         "last_error": last_error,
+        "last_run": last_run,
+        "message": message,
+    }
+
+
+def build_all_clear_payload(*, last_run: str, message: str) -> dict[str, Any]:
+    """Payload for first success after failure. Caller should clear last_alert_at so the next failure will alert."""
+    return {
+        "event": "z2g_all_clear",
         "last_run": last_run,
         "message": message,
     }

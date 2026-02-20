@@ -32,6 +32,18 @@ def test_build_payload_null_error():
     assert p["last_error"] is None
 
 
+def test_build_all_clear_payload():
+    p = alerting.build_all_clear_payload(
+        last_run="2026-02-13T15:00:00+00:00",
+        message="z2g run succeeded after previous failure(s).",
+    )
+    assert p["event"] == "z2g_all_clear"
+    assert p["last_run"] == "2026-02-13T15:00:00+00:00"
+    assert p["message"] == "z2g run succeeded after previous failure(s)."
+    assert "last_alert_at" not in p
+    assert "consecutive_failures" not in p
+
+
 def test_should_alert_below_min_failures(monkeypatch):
     monkeypatch.setenv("Z2G_ALERT_MIN_FAILURES", "2")
     state = {"consecutive_failures": 1, "last_alert_at": None}
@@ -55,6 +67,7 @@ def test_should_alert_rate_limited(monkeypatch):
 def test_should_alert_after_rate_window(monkeypatch):
     monkeypatch.setenv("Z2G_ALERT_MIN_FAILURES", "2")
     monkeypatch.setenv("Z2G_ALERT_RATE_HOURS", "24")
+    monkeypatch.setenv("Z2G_ALERT_TIMEZONE", "UTC")
     now = datetime(2026, 2, 14, 15, 0, 0, tzinfo=timezone.utc)
     state = {"consecutive_failures": 2, "last_alert_at": "2026-02-13T12:00:00+00:00"}
     assert alerting.should_alert(state, now=now) is True
@@ -62,6 +75,7 @@ def test_should_alert_after_rate_window(monkeypatch):
 
 def test_should_alert_hours_window_outside(monkeypatch):
     monkeypatch.setenv("Z2G_ALERT_MIN_FAILURES", "2")
+    monkeypatch.setenv("Z2G_ALERT_TIMEZONE", "UTC")
     monkeypatch.setenv("Z2G_ALERT_HOURS_START", "8")
     monkeypatch.setenv("Z2G_ALERT_HOURS_END", "22")
     now = datetime(2026, 2, 13, 3, 0, 0, tzinfo=timezone.utc)
@@ -71,6 +85,7 @@ def test_should_alert_hours_window_outside(monkeypatch):
 
 def test_should_alert_hours_window_inside(monkeypatch):
     monkeypatch.setenv("Z2G_ALERT_MIN_FAILURES", "2")
+    monkeypatch.setenv("Z2G_ALERT_TIMEZONE", "UTC")
     monkeypatch.setenv("Z2G_ALERT_HOURS_START", "8")
     monkeypatch.setenv("Z2G_ALERT_HOURS_END", "22")
     now = datetime(2026, 2, 13, 14, 0, 0, tzinfo=timezone.utc)

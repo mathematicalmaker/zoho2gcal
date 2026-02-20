@@ -230,19 +230,21 @@ All sync/run options except `--dry-run` can be set via env for Docker/supercroni
 
 ### Alerting (optional, for `run`)
 
-When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to a webhook URL. Useful for cron/supercronic/Docker so you get notified (e.g. via Home Assistant, IFTTT, or Zapier) instead of silent failures.
+When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to a webhook URL. On the first successful run after a failure, z2g sends an all-clear payload to the **same** URL. One webhook URL is used for both; the payload’s `event` field (`z2g_alert` or `z2g_all_clear`) distinguishes them. Useful for cron/supercronic/Docker so you get notified (e.g. [Pushover webhook](#pushover-webhook), [Home Assistant](#home-assistant), IFTTT, or Zapier) instead of silent failures.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `Z2G_ALERT_WEBHOOK_URL` | — | If set, POST alert payload to this URL when conditions are met |
+| `Z2G_ALERT_WEBHOOK_URL` | — | If set, POST failure and all-clear payloads to this URL |
 | `Z2G_ALERT_STATE_FILE` | `.z2g-alert-state.json` (under project root) | Path to state file for last run and failure count |
-| `Z2G_ALERT_MIN_FAILURES` | `2` | Send alert only after this many consecutive failures |
-| `Z2G_ALERT_RATE_HOURS` | `24` | Do not send another alert within this many hours of the last one |
-| `Z2G_ALERT_HOURS_START` | — | Optional: only send alerts when local hour ≥ this (0–23) |
-| `Z2G_ALERT_HOURS_END` | — | Optional: only send alerts when local hour < this (0–23) |
-| `Z2G_ALERT_TIMEZONE` | `UTC` | Timezone for alert window (e.g. `America/Chicago`) |
+| `Z2G_ALERT_MIN_FAILURES` | `2` | Send failure alert only after this many consecutive failures |
+| `Z2G_ALERT_RATE_HOURS` | `24` | Do not send another failure alert within this many hours of the last one. All-clear resets this so the next failure will alert. |
+| `Z2G_ALERT_HOURS_START` | — | Only send failure alerts when local time is in this window. Examples: 10 and 22 = 10am–10pm; 22 and 2 = 10pm–2am (overnight). |
+| `Z2G_ALERT_HOURS_END` | — | End of window (see START). Use 24 for midnight. |
+| `Z2G_ALERT_TIMEZONE` | `UTC` | Timezone for the alert window (e.g. `America/Chicago`) |
 
 **Webhook payload format** (JSON, `Content-Type: application/json`):
+
+**Failure** (`event`: `"z2g_alert"`):
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -252,7 +254,15 @@ When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to
 | `last_run` | string | ISO datetime of the last run |
 | `message` | string | Human-readable one-line summary |
 
-Example payload:
+**All-clear** (`event`: `"z2g_all_clear"`) — sent on first success after failure; clears the failure-alert rate limit so the next failure will trigger an alert:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | string | `"z2g_all_clear"` |
+| `last_run` | string | ISO datetime of the run |
+| `message` | string | e.g. `z2g run succeeded after previous failure(s).` |
+
+Example failure payload:
 
 ```json
 {
@@ -264,36 +274,55 @@ Example payload:
 }
 ```
 
-#### Home Assistant + Pushover
+Example all-clear payload:
+
+```json
+{
+  "event": "z2g_all_clear",
+  "last_run": "2026-02-13T15:00:00+00:00",
+  "message": "z2g run succeeded after previous failure(s)."
+}
+```
+
+#### Pushover webhook
+
+Easiest option: no app registration in z2g, just one URL. [Pushover supports webhooks](https://blog.pushover.net/posts/2026/2/webhooks)—create a webhook at [pushover.net/webhooks/build](https://pushover.net/webhooks/build) (or dashboard → **Your Webhooks** → **Create a Webhook**), then POST JSON to its URL; Pushover turns it into a notification.
+
+1. Create a webhook, name it (e.g. `z2g-alert`), and copy the webhook URL. You need at least one [Pushover application](https://pushover.net/apps/build) to use as the sender.
+2. Set in your env: `Z2G_ALERT_WEBHOOK_URL=<your Pushover webhook URL>`
+3. In the webhook’s **Data Extraction** (or after the first alert, use **Last Payload** and **Test Selectors on Last Payload** to try values):
+   - **Title** (selector): `{{event}}` or static text (e.g. `z2g alert`)
+   - **Body** (selector): **required** — you can use a single field or combine fields with static text. Pushover does not document whether `\n` in the selector is rendered as a newline; if you see literal `\n`, use a single-line body instead.
+   - **URL** / **URL title** / **Image**: optional; z2g does not send these, but you can use static values or leave blank.
+
+   **Body examples:**
+   - One-line: `{{message}}`
+   - Combined (try `\n` for newlines; if it shows literally, use the one-line or a separator like ` — `):  
+     `{{message}}\n\nError: {{last_error}}\nFailures: {{consecutive_failures}}\nAt: {{last_run}}`
+4. Save. When **`run`** fails repeatedly and conditions are met, z2g POSTs the payload to that URL and you get a Pushover notification.
+
+z2g sends failure (`event`: `z2g_alert`) and all-clear (`event`: `z2g_all_clear`) payloads. For all-clear, only `event`, `last_run`, and `message` are present. Top-level keys for selectors:
+
+| z2g payload key | Type | Example selector | Description |
+|------------------|------|------------------|-------------|
+| `event` | string | `{{event}}` | `"z2g_alert"` or `"z2g_all_clear"` |
+| `message` | string | `{{message}}` | Human-readable summary (use for Body) |
+| `last_error` | string \| null | `{{last_error}}` | Exception message (failure only) |
+| `consecutive_failures` | int | `{{consecutive_failures}}` | Failure count (failure only) |
+| `last_run` | string | `{{last_run}}` | ISO datetime of last run |
+
+#### Home Assistant
+
+Use an inbound webhook and automation if you want to drive **automations** (e.g. flashing LED, custom notification logic, or routing to Pushover/other targets from HA).
 
 1. In Home Assistant, create an **Inbound Webhook** (Settings → Automations & Scenes → Webhooks → Add Webhook). Copy the webhook URL (e.g. `https://your-ha.example.com/api/webhook/z2g-alert`).
 2. Set in your env: `Z2G_ALERT_WEBHOOK_URL=https://your-ha.example.com/api/webhook/z2g-alert`
-3. Create an automation that triggers on this webhook and sends a notification via Pushover (or any HA notification target).
+3. Create an automation that triggers on this webhook. **Action:** e.g. call `notify.pushover` with `{{ trigger.json.message }}`, or trigger a script (flashing LED, etc.).
 
-**Trigger:**
-- Trigger type: Webhook
-- Webhook ID: same ID you used in the URL (e.g. `z2g-alert`)
+**Trigger:** Webhook, same ID as in the URL (e.g. `z2g-alert`).  
+**Action example:** `notify.pushover` with title `Z2g sync failed`, message `{{ trigger.json.message }}`.
 
-**Action:** Call service `notify.pushover` (or your Pushover entity) with a message built from the webhook body, e.g.:
-
-- Title: `Z2g sync failed`
-- Message: `{{ trigger.json.message }}`  
-  or `{{ trigger.json.consecutive_failures }} failure(s): {{ trigger.json.last_error }}`
-
-Example YAML (conceptually):
-
-```yaml
-trigger:
-  - platform: webhook
-    webhook_id: z2g-alert
-action:
-  - service: notify.pushover
-    data:
-      title: "Z2g sync failed"
-      message: "{{ trigger.json.message }}"
-```
-
-4. Schedule **`run`** (e.g. cron or HA shell command) so that when sync fails repeatedly, the webhook fires and you get a Pushover notification.
+4. Schedule **`run`** (e.g. cron or HA shell command); when sync fails repeatedly, the webhook fires and your automation runs.
 
 #### IFTTT
 
@@ -507,7 +536,7 @@ Use this when the container was created once (e.g. in Portainer or with `docker 
 | Restart container | `docker restart z2g` |
 | Shell into running container | `docker exec -it z2g bash` |
 | Run verify | `docker exec z2g /app/.venv/bin/z2g verify` |
-| Run one-off sync | `docker exec z2g /app/.venv/bin/z2g run` |
+| Run one-off sync | `docker exec z2g /app/.venv/bin/z2g sync` |
 | List Zoho calendars | `docker exec z2g /app/.venv/bin/z2g list-zoho-calendars` |
 | List Google calendars | `docker exec z2g /app/.venv/bin/z2g list-google-calendars` |
 | Google auth (manual) | `docker exec -it z2g /app/.venv/bin/z2g google-auth --manual` |
