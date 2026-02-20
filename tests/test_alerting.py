@@ -40,8 +40,9 @@ def test_build_all_clear_payload():
     assert p["event"] == "z2g_all_clear"
     assert p["last_run"] == "2026-02-13T15:00:00+00:00"
     assert p["message"] == "z2g run succeeded after previous failure(s)."
+    assert p["last_error"] == "N/A"
+    assert p["consecutive_failures"] == 0
     assert "last_alert_at" not in p
-    assert "consecutive_failures" not in p
 
 
 def test_format_last_run_for_webhook_utc(monkeypatch):

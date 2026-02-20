@@ -254,13 +254,15 @@ When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to
 | `last_run` | string | Run time in `Z2G_ALERT_TIMEZONE` (ISO, truncated to second) |
 | `message` | string | Human-readable one-line summary |
 
-**All-clear** (`event`: `"z2g_all_clear"`) — sent on first success after failure; clears the failure-alert rate limit so the next failure will trigger an alert:
+**All-clear** (`event`: `"z2g_all_clear"`) — sent on first success after failure; clears the failure-alert rate limit so the next failure will trigger an alert. Includes `last_error` and `consecutive_failures` so the same body template works (e.g. Pushover):
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `event` | string | `"z2g_all_clear"` |
 | `last_run` | string | Run time in `Z2G_ALERT_TIMEZONE` (ISO, truncated to second) |
 | `message` | string | e.g. `z2g run succeeded after previous failure(s).` |
+| `last_error` | string | `"N/A"` (so `{{last_error}}` shows something sensible) |
+| `consecutive_failures` | int | `0` |
 
 Example failure payload:
 
@@ -279,8 +281,10 @@ Example all-clear payload:
 ```json
 {
   "event": "z2g_all_clear",
-  "last_run": "2026-02-13T15:00:00+00:00",
-  "message": "z2g run succeeded after previous failure(s)."
+  "last_run": "2026-02-13T15:00:00-06:00",
+  "message": "z2g run succeeded after previous failure(s).",
+  "last_error": "N/A",
+  "consecutive_failures": 0
 }
 ```
 
@@ -301,14 +305,14 @@ Easiest option: no app registration in z2g, just one URL. [Pushover supports web
      `{{message}}\n\nError: {{last_error}}\nFailures: {{consecutive_failures}}\nAt: {{last_run}}`
 4. Save. When **`run`** fails repeatedly and conditions are met, z2g POSTs the payload to that URL and you get a Pushover notification.
 
-z2g sends failure (`event`: `z2g_alert`) and all-clear (`event`: `z2g_all_clear`) payloads. For all-clear, only `event`, `last_run`, and `message` are present. Top-level keys for selectors:
+z2g sends failure (`event`: `z2g_alert`) and all-clear (`event`: `z2g_all_clear`) payloads. All-clear includes `last_error` (`"N/A"`) and `consecutive_failures` (`0`) so the same body template works. Top-level keys for selectors:
 
 | z2g payload key | Type | Example selector | Description |
 |------------------|------|------------------|-------------|
 | `event` | string | `{{event}}` | `"z2g_alert"` or `"z2g_all_clear"` |
 | `message` | string | `{{message}}` | Human-readable summary (use for Body) |
-| `last_error` | string \| null | `{{last_error}}` | Exception message (failure only) |
-| `consecutive_failures` | int | `{{consecutive_failures}}` | Failure count (failure only) |
+| `last_error` | string \| null | `{{last_error}}` | Exception message (failure) or `"N/A"` (all-clear) |
+| `consecutive_failures` | int | `{{consecutive_failures}}` | Failure count (failure) or `0` (all-clear) |
 | `last_run` | string | `{{last_run}}` | Run time in your timezone (ISO, to the second) |
 
 #### Home Assistant

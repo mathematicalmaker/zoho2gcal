@@ -146,11 +146,14 @@ def build_payload(
 
 
 def build_all_clear_payload(*, last_run: str, message: str) -> dict[str, Any]:
-    """Payload for first success after failure. Caller should clear last_alert_at so the next failure will alert."""
+    """Payload for first success after failure. Caller should clear last_alert_at so the next failure will alert.
+    Includes last_error and consecutive_failures so the same webhook body template works (N/A and 0)."""
     return {
         "event": "z2g_all_clear",
         "last_run": last_run,
         "message": message,
+        "last_error": "N/A",
+        "consecutive_failures": 0,
     }
 
 
