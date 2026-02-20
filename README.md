@@ -53,7 +53,7 @@ Before starting: copy `.env.example` → `.env` and fill in credentials.
 uv run python scripts/sync_env.py
 ```
 
-This rewrites `.env` using the **structure and comments** of the new `.env.example` but keeps **all existing values** from your `.env`; new keys get their example value. If you prefer to do it manually, diff `.env.example` and add any new variables to `.env`.
+This rewrites `.env` to match the **structure and comments** of `.env.example` and keeps **values** from your existing `.env` (for keys that appear in the example); new keys get the example value. Comments or keys that exist only in your `.env` are not preserved. If you prefer to do it manually, diff `.env.example` and add any new variables to `.env`.
 
 ### 1. Zoho (API Console + OAuth)
 

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Sync .env from .env.example: keep structure and comments from the example, use values from .env.
 
+Output conforms to .env.example (order, comments, blank lines). Values come from your existing
+.env when the key exists there; otherwise the example value is used. Comments or keys that exist
+only in .env (and not in .env.example) are not preserved—they will be removed.
+
 Run from project root:
   uv run python scripts/sync_env.py
   # or: python scripts/sync_env.py
 
 In Docker, .env lives under DATA_DIR (e.g. /data). The script uses DATA_DIR when set so it works
 when run inside the container (e.g. docker exec z2g python /app/scripts/sync_env.py).
-
-Reads .env.example line-by-line (preserving order, comments, blank lines). For each KEY=VALUE
-line, outputs KEY=<value from .env if present, else example value>, preserving any trailing
-inline comment. If .env does not exist, creates it from .env.example (all example values).
 """
 
 import os
@@ -37,15 +37,34 @@ def _parse_env_file(path: Path) -> dict[str, str]:
     return out
 
 
-def _parse_example_line(line: str) -> tuple[str, str, str] | None:
-    """If line is KEY=VALUE (optional trailing # comment), return (key, example_value, trailing). Else None."""
-    if "=" not in line or line.strip().startswith("#"):
+def _parse_example_line(line: str) -> tuple[str, str, str, bool] | None:
+    """If line is KEY=VALUE or # KEY=VALUE, return (key, example_value, trailing, commented).
+    commented=True means the line was commented in the example (optional var). Else None."""
+    stripped = line.strip()
+    commented = stripped.startswith("#")
+    if commented:
+        # Optional var: "# KEY=value" or "#KEY=value"
+        rest = stripped.lstrip("#").strip()
+        if "=" not in rest:
+            return None
+        key, _, value_part = rest.partition("=")
+        key = key.strip()
+        if not key:
+            return None
+        value_part = value_part.strip()
+        if " #" in value_part:
+            example_value = value_part.split(" #", 1)[0].strip()
+            trailing = " #" + value_part.split(" #", 1)[1]
+        else:
+            example_value = value_part
+            trailing = ""
+        return (key, example_value, trailing, True)
+    if "=" not in line:
         return None
     key, _, rest = line.partition("=")
     key = key.strip()
     if not key:
         return None
-    # rest is value + optional " # comment"
     rest_stripped = rest.strip()
     if " #" in rest_stripped:
         example_value = rest_stripped.split(" #", 1)[0].strip()
@@ -53,7 +72,7 @@ def _parse_example_line(line: str) -> tuple[str, str, str] | None:
     else:
         example_value = rest_stripped
         trailing = ""
-    return (key, example_value, trailing)
+    return (key, example_value, trailing, False)
 
 
 def sync_env(example_path: Path, env_path: Path) -> None:
@@ -64,12 +83,18 @@ def sync_env(example_path: Path, env_path: Path) -> None:
     for line in example_lines:
         parsed = _parse_example_line(line)
         if parsed is None:
-            # Comment, blank, or not KEY=VALUE: keep line as-is
+            # Blank or non-assignment comment: keep line as-is
             output.append(line)
             continue
-        key, example_value, trailing = parsed
-        value = current.get(key, example_value)
-        output.append(f"{key}={value}{trailing}")
+        key, example_value, trailing, was_commented = parsed
+        if key in current:
+            # User has this var: output uncommented so it takes effect
+            output.append(f"{key}={current[key]}{trailing}")
+        elif was_commented:
+            # Optional var, user didn't set it: keep commented line as-is
+            output.append(line)
+        else:
+            output.append(f"{key}={example_value}{trailing}")
     env_path.parent.mkdir(parents=True, exist_ok=True)
     env_path.write_text("\n".join(output) + "\n")
     print(f"Wrote {env_path} (structure from {example_path}, values from existing .env or example)")
