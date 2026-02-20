@@ -193,12 +193,12 @@ uv run z2g sync --delete-missing
 | `google-auth` | Run Google OAuth flow (write token JSON) |
 | `zoho-exchange-code` | Exchange Zoho auth code → refresh token |
 | `list-zoho-calendars` | Show Zoho calendar UIDs |
-| `list-google-calendars` | Show Google calendar IDs, names, and default reminders (GOOGLE_REMINDERS-style)^1^ |
+| `list-google-calendars` | Show Google calendar IDs, names, and default reminders (GOOGLE_REMINDERS-style, tab-separated)^1^ |
 | `verify` | Check auth and Zoho + Google connections/scopes (sync/run also require calendar IDs) |
 | `zoho-token` | Print Zoho access token (debug) |
 
 ^1^ Formats well with:
-	 `z2g list-google-calendars | column -t -s $'\t'` or
+	 `z2g list-google-calendars | sed 's/\t/ /g'` or
 	 `z2g list-google-calendars | awk -F'\t' 'NR>1 {print $3}'`
 
 ## Environment Variables
