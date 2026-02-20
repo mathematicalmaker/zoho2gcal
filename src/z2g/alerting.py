@@ -42,6 +42,15 @@ def _get_tz():
         return timezone.utc
 
 
+def format_last_run_for_webhook(utc_dt: datetime) -> str:
+    """Format UTC datetime as ISO string in Z2G_ALERT_TIMEZONE, truncated to second (for webhook payloads)."""
+    tz = _get_tz()
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+    local = utc_dt.astimezone(tz).replace(microsecond=0)
+    return local.isoformat()
+
+
 def load_state() -> dict[str, Any]:
     path = _get_state_path()
     if not path.exists():

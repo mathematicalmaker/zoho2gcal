@@ -44,6 +44,23 @@ def test_build_all_clear_payload():
     assert "consecutive_failures" not in p
 
 
+def test_format_last_run_for_webhook_utc(monkeypatch):
+    monkeypatch.setenv("Z2G_ALERT_TIMEZONE", "UTC")
+    utc_dt = datetime(2026, 2, 13, 14, 30, 5, 123456, tzinfo=timezone.utc)
+    s = alerting.format_last_run_for_webhook(utc_dt)
+    assert s == "2026-02-13T14:30:05+00:00"
+    assert "." not in s  # truncated to second
+
+
+def test_format_last_run_for_webhook_local_tz(monkeypatch):
+    monkeypatch.setenv("Z2G_ALERT_TIMEZONE", "America/Chicago")
+    utc_dt = datetime(2026, 2, 13, 20, 30, 5, 999999, tzinfo=timezone.utc)
+    s = alerting.format_last_run_for_webhook(utc_dt)
+    assert "2026-02-13" in s
+    assert "14:30:05" in s  # CST is UTC-6
+    assert "." not in s
+
+
 def test_should_alert_below_min_failures(monkeypatch):
     monkeypatch.setenv("Z2G_ALERT_MIN_FAILURES", "2")
     state = {"consecutive_failures": 1, "last_alert_at": None}

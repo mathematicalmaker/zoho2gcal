@@ -251,7 +251,7 @@ When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to
 | `event` | string | `"z2g_alert"` |
 | `consecutive_failures` | int | Number of consecutive failed runs |
 | `last_error` | string \| null | Message of the last exception |
-| `last_run` | string | ISO datetime of the last run |
+| `last_run` | string | Run time in `Z2G_ALERT_TIMEZONE` (ISO, truncated to second) |
 | `message` | string | Human-readable one-line summary |
 
 **All-clear** (`event`: `"z2g_all_clear"`) — sent on first success after failure; clears the failure-alert rate limit so the next failure will trigger an alert:
@@ -259,7 +259,7 @@ When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to
 | Field | Type | Description |
 |-------|------|-------------|
 | `event` | string | `"z2g_all_clear"` |
-| `last_run` | string | ISO datetime of the run |
+| `last_run` | string | Run time in `Z2G_ALERT_TIMEZONE` (ISO, truncated to second) |
 | `message` | string | e.g. `z2g run succeeded after previous failure(s).` |
 
 Example failure payload:
@@ -309,7 +309,7 @@ z2g sends failure (`event`: `z2g_alert`) and all-clear (`event`: `z2g_all_clear`
 | `message` | string | `{{message}}` | Human-readable summary (use for Body) |
 | `last_error` | string \| null | `{{last_error}}` | Exception message (failure only) |
 | `consecutive_failures` | int | `{{consecutive_failures}}` | Failure count (failure only) |
-| `last_run` | string | `{{last_run}}` | ISO datetime of last run |
+| `last_run` | string | `{{last_run}}` | Run time in your timezone (ISO, to the second) |
 
 #### Home Assistant
 

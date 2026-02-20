@@ -5,6 +5,9 @@
 secrets/*
 !secrets/README.md
 
+# Runtime state (created by z2g run; never bake into image)
+.z2g-alert-state.json
+
 # Python / build
 .venv/
 __pycache__/

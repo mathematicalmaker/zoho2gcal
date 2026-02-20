@@ -324,7 +324,7 @@ def cmd_run(
             payload = alerting.build_payload(
                 consecutive_failures=state["consecutive_failures"],
                 last_error=last_error,
-                last_run=now_iso,
+                last_run=alerting.format_last_run_for_webhook(now),
                 message=f"z2g run failed {state['consecutive_failures']} time(s): {last_error}",
             )
             try:
@@ -340,7 +340,7 @@ def cmd_run(
     url = os.environ.get("Z2G_ALERT_WEBHOOK_URL", "").strip()
     if url and was_failing:
         payload = alerting.build_all_clear_payload(
-            last_run=now_iso,
+            last_run=alerting.format_last_run_for_webhook(now),
             message="z2g run succeeded after previous failure(s).",
         )
         try:
