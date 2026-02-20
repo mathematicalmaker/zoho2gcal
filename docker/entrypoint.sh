@@ -27,7 +27,7 @@ fi
 # No args: run supercronic (cron), or keep shell alive, or verify and exit
 # Z2G_CRON_ENABLED and Z2G_SHELL are independent: if both set, cron runs (container stays up so you can exec in)
 if [ "${Z2G_CRON_ENABLED}" = "1" ] || [ "${Z2G_CRON_ENABLED}" = "true" ] || [ "${Z2G_CRON_ENABLED}" = "yes" ]; then
-  exec supercronic "${DATA_DIR}/crontab"
+  exec supercronic -json-logs "${DATA_DIR}/crontab"
 fi
 # Z2G_SHELL=1: keep container running (for docker exec, setup, debugging) when cron is not enabled
 if [ "${Z2G_SHELL}" = "1" ] || [ "${Z2G_SHELL}" = "true" ] || [ "${Z2G_SHELL}" = "yes" ]; then

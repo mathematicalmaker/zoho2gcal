@@ -457,6 +457,26 @@ docker run -d \
 
 To disable cron again, stop the container and run without `Z2G_CRON_ENABLED=1` (or remove it); the default is verify-and-exit. You can also edit `data/crontab` and comment out the line to pause syncs, then restart the container.
 
+### Logs
+
+Docker does **not** prune container logs automatically; they grow until the container is removed or you prune/rotate them. To limit size and rotation, set the [logging driver options](https://docs.docker.com/config/containers/logging/configure/) `max-size` and `max-file`: in a stack use the `logging` block (see [Docker Stack](#6-optional-stack)); with `docker run` add **`--log-opt max-size=10m --log-opt max-file=3`**.
+
+Supercronic runs with **`-json-logs`** (one JSON line per event). z2g’s output (skipped/inserted/patched) is on lines with `"channel":"stdout"`; errors use `"channel":"stderr"`. Examples:
+
+```bash
+# Last 50 lines
+docker logs --tail 50 z2g
+
+# z2g output only (skip supercronic info lines)
+docker logs z2g 2>&1 | grep '"channel":"stdout"'
+
+# With jq (if installed): z2g stdout only
+docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stdout")?'
+
+# With jq: errors only
+docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stderr")?'
+```
+
 ### Shell into the container
 
 The container exits after `verify` by default, so `docker exec` won’t work until it’s running. Start it with **`Z2G_SHELL=1`** to drop into bash and keep it running:
@@ -517,9 +537,14 @@ services:
       - Z2G_CRON_ENABLED=1
     volumes:
       - /volume1/docker/zoho2gcal:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 ```
 
-One-off setup commands still need a separate container or console with the same volume.
+The **logging** block limits log size and rotation so the container doesn’t fill disk. One-off setup commands still need a separate container or console with the same volume.
 
 **Troubleshooting:** Missing env → check `.env` exists and volume is `/data`. File not found for Google client secret → add `secrets/google_client_secret.json`. Sync fails after enabling cron → set `ZOHO_CALENDAR_UID` and `GOOGLE_CALENDAR_ID` in `.env`. Path on Synology → use File Station or Control Panel → Shared Folder to see the path.
 
