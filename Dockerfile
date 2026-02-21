@@ -29,9 +29,15 @@ RUN ln -s /app/.venv/bin/z2g /usr/local/bin/z2g
 COPY README.md .env.example /app/
 COPY scripts/ /app/scripts/
 COPY secrets/README.md /app/secrets/
-COPY docker/crontab.example docker/entrypoint.sh /app/docker/
-RUN chmod +x /app/docker/entrypoint.sh
+COPY docker/crontab.example docker/entrypoint.sh docker/healthcheck.sh /app/docker/
+RUN chmod +x /app/docker/entrypoint.sh /app/docker/healthcheck.sh
 
 ENV DATA_DIR=/data
+
+# Healthcheck: verify sync is succeeding and recent (based on state file)
+# Only meaningful when running with cron (Z2G_CRON_ENABLED=1)
+HEALTHCHECK --interval=120s --timeout=10s --start-period=60s --retries=3 \
+  CMD /app/docker/healthcheck.sh
+
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
 CMD []

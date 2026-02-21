@@ -64,7 +64,7 @@ This rewrites `.env` to match the **structure and comments** of `.env.example` a
 
 3. Open the **Client Secret** tab and copy **Client ID** and **Client Secret** into `.env` as `ZOHO_CLIENT_ID` and `ZOHO_CLIENT_SECRET`.
 
-   ![Zoho Client Secret tab](images/zoho-client-secret-tab.png)
+ ![Zoho Client Secret tab](images/zoho-client-secret-tab.png) 
 
 4. Open the **Generate Code** tab. Set **Scope** to `ZohoCalendar.calendar.READ,ZohoCalendar.event.READ` (comma-separated, no spaces). Set **Code expiry duration** (e.g. 10 minutes). Optionally add a **Description** (e.g. `z2g`). Click **CREATE**.
 
@@ -233,6 +233,7 @@ uv run z2g sync --delete-missing
 | `Z2G_GOOGLE_AUTH_MANUAL` | No | Set to `1` to use manual (paste URL) Google auth |
 | `Z2G_CRON_ENABLED` | No | Set to `1` in Docker to start supercronic (scheduled syncs); default runs `verify` and exits |
 | `Z2G_SHELL` | No | Set to `1` in Docker to drop into bash and keep container running (for `docker exec`, setup, debugging) |
+| `Z2G_HEALTH_MAX_AGE_MINUTES` | No | Max age (minutes) for HEALTHCHECK; default 35 (only meaningful when `Z2G_CRON_ENABLED=1`) |
 
 All sync/run options except `--dry-run` can be set via env for Docker/supercronic.
 
@@ -477,6 +478,22 @@ docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stdout")?'
 docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stderr")?'
 ```
 
+### Healthcheck
+
+The container includes a `HEALTHCHECK` that monitors sync status by reading `.z2g-alert-state.json` (only meaningful when `Z2G_CRON_ENABLED=1`). It checks:
+- State file exists
+- `last_status` is `"ok"`
+- Last run is within the configured max age (default 35 minutes; set `Z2G_HEALTH_MAX_AGE_MINUTES` to change)
+
+**Portainer**: View health status in the container list (Healthy/Unhealthy). The check runs every 120 seconds with a 60-second grace period on startup.
+
+**CLI**: Check status manually:
+```bash
+docker inspect --format='{{.State.Health.Status}}' z2g
+```
+
+Unhealthy status indicates the sync hasn't succeeded recently—check logs for errors.
+
 ### Shell into the container
 
 The container exits after `verify` by default, so `docker exec` won’t work until it’s running. Start it with **`Z2G_SHELL=1`** to drop into bash and keep it running:
@@ -535,6 +552,9 @@ services:
     restart: unless-stopped
     environment:
       - Z2G_CRON_ENABLED=1
+      - Z2G_SHELL=1
+      # Optional: adjust healthcheck max age (default 35 minutes)
+      # - Z2G_HEALTH_MAX_AGE_MINUTES=35
     volumes:
       - /volume1/docker/zoho2gcal:/data
     logging:
@@ -607,6 +627,23 @@ Use this when the container was created once (e.g. in Portainer or with `docker 
 | Inspect container | `docker inspect z2g` |
 
 **Exiting:** From an **exec** shell, `exit` or Ctrl+D only ends that session; container keeps running. From the **main** process (if you started with `-it`), Ctrl+P then Ctrl+Q detaches; `exit` stops the container.
+
+## Appendix: Windows (PowerShell)
+
+z2g works on Windows using Docker Desktop (WSL2/Hyper-V) or native uv. Key differences:
+
+**Volume mount syntax:** Use Windows paths or `${PWD}` instead of `$(pwd)`:
+```powershell
+docker run --rm -v C:\path\to\data:/data zoho2gcal verify
+docker run --rm -v ${PWD}\data:/data zoho2gcal list-zoho-calendars
+```
+
+**Interactive auth (required for --manual):**
+```powershell
+docker run -it --rm -v ${PWD}\data:/data zoho2gcal google-auth --manual
+```
+
+Everything else—environment variables, OAuth flows, cron scheduling—behaves identically since the container runs Linux internally.
 
 ## License
 
