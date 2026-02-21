@@ -638,7 +638,7 @@ docker run --rm -v C:\path\to\data:/data zoho2gcal verify
 docker run --rm -v ${PWD}\data:/data zoho2gcal list-zoho-calendars
 ```
 
-**Interactive auth (required for --manual):**
+**Interactive auth:** Use `-it` so you can paste the redirect URL (e.g. `google-auth --manual`):
 ```powershell
 docker run -it --rm -v ${PWD}\data:/data zoho2gcal google-auth --manual
 ```
