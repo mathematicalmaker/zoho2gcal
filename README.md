@@ -462,7 +462,7 @@ To disable cron again, stop the container and run without `Z2G_CRON_ENABLED=1` (
 
 Docker does **not** prune container logs automatically; they grow until the container is removed or you prune/rotate them. To limit size and rotation, set the [logging driver options](https://docs.docker.com/config/containers/logging/configure/) `max-size` and `max-file`: in a stack use the `logging` block (see [Docker Stack](#6-optional-stack)); with `docker run` add **`--log-opt max-size=10m --log-opt max-file=3`**.
 
-Supercronic runs with **`-json-logs`** (one JSON line per event). z2g’s output (skipped/inserted/patched) is on lines with `"channel":"stdout"`; errors use `"channel":"stderr"`. Examples:
+Supercronic runs with **`-json`** (one JSON line per event). z2g’s output (skipped/inserted/patched) is on lines with `"channel":"stdout"`; errors use `"channel":"stderr"`. Examples:
 
 ```bash
 # Last 50 lines
