@@ -315,11 +315,26 @@ def cmd_run(
         success = False
         last_error = str(e)
         state = alerting.load_state()
+        url = os.environ.get("Z2G_ALERT_WEBHOOK_URL", "").strip()
+        # Recovered outside window: send all-clear at first run inside next window so user knows they don't need to check (even if this run failed)
+        if url and state.get("last_status") == "ok" and state.get("last_alert_at") and alerting.is_inside_alert_window(now):
+            try:
+                alerting.send_webhook(
+                    url,
+                    alerting.build_all_clear_payload(
+                        last_run=alerting.format_last_run_for_webhook(now),
+                        message="z2g run succeeded after previous failure(s).",
+                    ),
+                )
+                state["last_alert_at"] = None
+                alerting.save_state(state)
+                print("z2g: all-clear sent (webhook)")
+            except Exception as webhook_err:
+                print(f"z2g: webhook (all-clear) failed: {webhook_err}", file=sys.stderr)
         state["last_run"] = now_iso
         state["last_status"] = "error"
         state["consecutive_failures"] = state.get("consecutive_failures", 0) + 1
         alerting.save_state(state)
-        url = os.environ.get("Z2G_ALERT_WEBHOOK_URL", "").strip()
         if url and alerting.should_alert(state, now):
             payload = alerting.build_payload(
                 consecutive_failures=state["consecutive_failures"],
@@ -331,14 +346,15 @@ def cmd_run(
                 alerting.send_webhook(url, payload)
                 state["last_alert_at"] = now_iso
                 alerting.save_state(state)
+                print("z2g: alert sent (webhook)")
             except Exception as webhook_err:
                 print(f"z2g: webhook failed: {webhook_err}", file=sys.stderr)
         raise
-    # Success: if we were in failure state, send all-clear and clear last_alert_at so the next failure will alert
+    # Success: send all-clear only if we had sent an alert and we're inside the alert window (same as failure alerts)
     state = alerting.load_state()
-    was_failing = state.get("last_status") == "error" or state.get("consecutive_failures", 0) > 0
+    had_sent_alert = state.get("last_alert_at") is not None
     url = os.environ.get("Z2G_ALERT_WEBHOOK_URL", "").strip()
-    if url and was_failing:
+    if url and had_sent_alert and alerting.is_inside_alert_window(now):
         payload = alerting.build_all_clear_payload(
             last_run=alerting.format_last_run_for_webhook(now),
             message="z2g run succeeded after previous failure(s).",
@@ -346,6 +362,7 @@ def cmd_run(
         try:
             alerting.send_webhook(url, payload)
             state["last_alert_at"] = None  # allow next failure to trigger an alert
+            print("z2g: all-clear sent (webhook)")
         except Exception as webhook_err:
             print(f"z2g: webhook (all-clear) failed: {webhook_err}", file=sys.stderr)
     state["last_run"] = now_iso

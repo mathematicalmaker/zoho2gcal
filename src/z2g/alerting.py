@@ -4,9 +4,15 @@ State file: last_run, last_status, consecutive_failures, last_alert_at.
 Alerts when: consecutive_failures >= min_failures, rate-limited, and (optionally) within alert hours.
 Webhook: POST JSON to Z2G_ALERT_WEBHOOK_URL.
 
+Timezone convention:
+  - UTC: State file values (last_run, last_alert_at) are stored as ISO strings in UTC.
+  - Z2G_ALERT_TIMEZONE: Alert window (Z2G_ALERT_HOURS_*), rate-limit comparison, and webhook
+    payload "last_run" string use this timezone. Set it (e.g. America/Chicago) so the
+    alert window and webhook times match your local time; otherwise they default to UTC.
+
 Payload format (for docs and callers):
   Failure: event "z2g_alert"; consecutive_failures, last_error, last_run, message.
-  All-clear: event "z2g_all_clear"; last_run, message. Sent on first success after failure. Clears last_alert_at so the next failure will trigger an alert.
+  All-clear: event "z2g_all_clear"; last_run, message. Sent when we had previously sent an alert (last_alert_at set) and current local time is inside the alert window (Z2G_ALERT_HOURS_*). Sent on (1) first success inside the window, or (2) first run inside the next window after recovery outside the window (even if that run fails), so the user knows at the start of the day that they don't need to check. Clears last_alert_at so the next failure will trigger an alert. All-clear does not use rate_hours.
 """
 from __future__ import annotations
 
@@ -85,6 +91,28 @@ def save_state(state: dict[str, Any]) -> None:
         json.dump(state, f, indent=2)
 
 
+def is_inside_alert_window(now: datetime | None = None) -> bool:
+    """True if current local time (Z2G_ALERT_TIMEZONE) is inside Z2G_ALERT_HOURS_* window.
+    If no window is set, returns True (no restriction). Used for both failure alerts and all-clear."""
+    now = now or datetime.now(timezone.utc)
+    tz = _get_tz()
+    if hasattr(now, "astimezone"):
+        now = now.astimezone(tz)
+    start_h = (os.environ.get("Z2G_ALERT_HOURS_START") or "").strip().split("#")[0].strip()
+    end_h = (os.environ.get("Z2G_ALERT_HOURS_END") or "").strip().split("#")[0].strip()
+    if not start_h and not end_h:
+        return True
+    try:
+        start_hour = int(start_h) if start_h else 0
+        end_hour = int(end_h) if end_h else 24
+        current_hour = now.hour
+        if start_hour <= end_hour:
+            return start_hour <= current_hour < end_hour
+        return current_hour >= start_hour or current_hour < end_hour
+    except (ValueError, TypeError):
+        return False
+
+
 def should_alert(state: dict[str, Any], now: datetime | None = None) -> bool:
     """True if we should send an alert: failures >= min, rate limit passed, and current local time inside alert window (if set).
     Alert window: Z2G_ALERT_HOURS_START (inclusive) to Z2G_ALERT_HOURS_END (exclusive). Set both, or only one for open-ended."""
@@ -110,21 +138,8 @@ def should_alert(state: dict[str, Any], now: datetime | None = None) -> bool:
         except Exception:
             pass
 
-    start_h = (os.environ.get("Z2G_ALERT_HOURS_START") or "").strip()
-    end_h = (os.environ.get("Z2G_ALERT_HOURS_END") or "").strip()
-    if start_h or end_h:
-        try:
-            start_hour = int(start_h) if start_h else 0
-            end_hour = int(end_h) if end_h else 24
-            current_hour = now.hour
-            if start_hour <= end_hour:
-                if current_hour < start_hour or current_hour >= end_hour:
-                    return False
-            else:
-                if current_hour >= end_hour and current_hour < start_hour:
-                    return False
-        except (ValueError, TypeError):
-            pass
+    if not is_inside_alert_window(now):
+        return False
 
     return True
 

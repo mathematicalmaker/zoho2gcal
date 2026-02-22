@@ -1,6 +1,21 @@
 #!/bin/sh
 DATA_DIR="${DATA_DIR:-/data}"
 
+# Set TZ for Supercronic (and other processes) so log timestamps use the user's timezone.
+# Use TZ if already set; else Z2G_ALERT_TIMEZONE from env; else from ${DATA_DIR}/.env.
+if [ -z "$TZ" ]; then
+  if [ -n "$Z2G_ALERT_TIMEZONE" ]; then
+    export TZ="$Z2G_ALERT_TIMEZONE"
+  elif [ -f "${DATA_DIR}/.env" ]; then
+    line=$(grep -E '^Z2G_ALERT_TIMEZONE=' "${DATA_DIR}/.env" 2>/dev/null | head -1)
+    if [ -n "$line" ]; then
+      val="${line#*=}"
+      val=$(echo "$val" | tr -d '\r' | sed 's/^["'\'' ]*//;s/["'\'' ]*$//')
+      if [ -n "$val" ]; then export TZ="$val"; fi
+    fi
+  fi
+fi
+
 # Bootstrap DATA_DIR: create .env and secrets/ from examples if missing
 # (so Docker users can start without a copy of the repo)
 mkdir -p "${DATA_DIR}/secrets"

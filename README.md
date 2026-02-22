@@ -239,7 +239,7 @@ All sync/run options except `--dry-run` can be set via env for Docker/supercroni
 
 ### Alerting (optional, for `run`)
 
-When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to a webhook URL. On the first successful run after a failure, z2g sends an all-clear payload to the **same** URL. One webhook URL is used for both; the payload’s `event` field (`z2g_alert` or `z2g_all_clear`) distinguishes them. Useful for cron/supercronic/Docker so you get notified (e.g. [Pushover webhook](#pushover-webhook), [Home Assistant](#home-assistant), IFTTT, or Zapier) instead of silent failures.
+When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to a webhook URL. When you had been alerted (i.e. a failure alert was sent) and errors have subsided, z2g sends an all-clear payload to the **same** URL so you know you don't need to check. All-clear is sent at the **start of the next alert window** (first run inside the window when recovered)—on success, or on the first run inside the window even if that run fails, so you get "all clear" at the start of the day if you had planned to look into it. One webhook URL is used for both; the payload’s `event` field (`z2g_alert` or `z2g_all_clear`) distinguishes them. Useful for cron/supercronic/Docker so you get notified (e.g. [Pushover webhook](#pushover-webhook), [Home Assistant](#home-assistant), IFTTT, or Zapier) instead of silent failures.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -247,9 +247,11 @@ When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to
 | `Z2G_ALERT_STATE_FILE` | `.z2g-alert-state.json` (under project root) | Path to state file for last run and failure count |
 | `Z2G_ALERT_MIN_FAILURES` | `2` | Send failure alert only after this many consecutive failures |
 | `Z2G_ALERT_RATE_HOURS` | `24` | Do not send another failure alert within this many hours of the last one. All-clear resets this so the next failure will alert. |
-| `Z2G_ALERT_HOURS_START` | — | Only send failure alerts when local time is in this window. Examples: 10 and 22 = 10am–10pm; 22 and 2 = 10pm–2am (overnight). |
-| `Z2G_ALERT_HOURS_END` | — | End of window (see START). Use 24 for midnight. |
-| `Z2G_ALERT_TIMEZONE` | `UTC` | Timezone for the alert window (e.g. `America/Chicago`) |
+| `Z2G_ALERT_HOURS_START` | — | Only send failure alerts when local time is in this window. Examples: 10 and 22 = 10am–10pm; 22 and 2 = 10pm–2am (overnight). **Requires** `Z2G_ALERT_TIMEZONE` so the window is in your local time. |
+| `Z2G_ALERT_HOURS_END` | — | End of window (see START). Use 24 for midnight. Inline `#` comments in the value are stripped so `24  # midnight` works. |
+| `Z2G_ALERT_TIMEZONE` | `UTC` | Timezone for the alert window and webhook `last_run` (e.g. `America/Chicago`). Set this if you use alert hours so the window is evaluated in your local time; otherwise the window uses UTC. In Docker, if set (in `.env` or container env), the entrypoint also sets `TZ` so Supercronic log timestamps use this timezone. |
+
+**Timezone:** The state file stores `last_run` and `last_alert_at` in **UTC** (ISO). The alert window (hours) and webhook payload `last_run` string use **Z2G_ALERT_TIMEZONE**. If you set alert hours but leave `Z2G_ALERT_TIMEZONE` at default UTC, the window is in UTC (e.g. 8–22 means 08:00–22:00 UTC). Set `Z2G_ALERT_TIMEZONE` to your timezone (e.g. `America/Chicago`) so the window and webhook times match your local time.
 
 **Webhook payload format** (JSON, `Content-Type: application/json`):
 
@@ -263,7 +265,7 @@ When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to
 | `last_run` | string | Run time in `Z2G_ALERT_TIMEZONE` (ISO, truncated to second) |
 | `message` | string | Human-readable one-line summary |
 
-**All-clear** (`event`: `"z2g_all_clear"`) — sent on first success after failure; clears the failure-alert rate limit so the next failure will trigger an alert. Includes `last_error` and `consecutive_failures` so the same body template works (e.g. Pushover):
+**All-clear** (`event`: `"z2g_all_clear"`) — sent when a failure alert had been sent and current local time is inside the alert window (same as failure alerts). Sent on (1) first success inside the window, or (2) first run inside the next window after recovery outside the window (even if that run fails), so you know at the start of the day that you don't need to check. Clears the failure-alert rate limit so the next failure will trigger an alert. All-clear does not use rate_hours. Includes `last_error` and `consecutive_failures` so the same body template works (e.g. Pushover):
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -462,7 +464,7 @@ To disable cron again, stop the container and run without `Z2G_CRON_ENABLED=1` (
 
 Docker does **not** prune container logs automatically; they grow until the container is removed or you prune/rotate them. To limit size and rotation, set the [logging driver options](https://docs.docker.com/config/containers/logging/configure/) `max-size` and `max-file`: in a stack use the `logging` block (see [Docker Stack](#6-optional-stack)); with `docker run` add **`--log-opt max-size=10m --log-opt max-file=3`**.
 
-Supercronic runs with **`-json`** (one JSON line per event). z2g’s output (skipped/inserted/patched) is on lines with `"channel":"stdout"`; errors use `"channel":"stderr"`. Examples:
+Supercronic runs with **`-json`** (one JSON line per event). The `time` field in each line uses the container timezone: if you set **Z2G_ALERT_TIMEZONE** (in `.env` or container env), the entrypoint sets `TZ` so these timestamps match your local time; otherwise they are UTC. z2g’s output (skipped/inserted/patched) is on lines with `"channel":"stdout"`; errors use `"channel":"stderr"`. When an alert or all-clear webhook is sent, z2g prints `z2g: alert sent (webhook)` or `z2g: all-clear sent (webhook)` to stdout so those events appear in the logs. Examples:
 
 ```bash
 # Last 50 lines
