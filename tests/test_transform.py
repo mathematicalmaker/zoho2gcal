@@ -4,7 +4,6 @@ from datetime import date, datetime, timezone
 import pytest
 
 from z2g.transform import (
-    MIRROR_MARKER,
     build_google_mirror_event,
     format_default_reminders,
     is_zoho_allday,
@@ -108,7 +107,7 @@ def test_build_google_mirror_event_no_attendees():
     assert "attendees" not in body
     assert body["summary"] == "Meeting"
     assert body["iCalUID"] == "test@example.com"
-    assert MIRROR_MARKER in body["description"]
+    assert "X-ZOHO-UID:test@example.com" in body["description"]
 
 
 def test_build_google_mirror_event_allday():

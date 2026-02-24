@@ -10,9 +10,6 @@ from typing import Any, Dict, Tuple, List
 
 from dateutil import parser as dtparser
 
-# Human-visible marker so you can eyeball mirrored events and bulk-cleanup if needed.
-MIRROR_MARKER = "X-ZOHO-MIRROR:1"
-
 
 def iso_z(dt: datetime) -> str:
     """UTC ISO-8601 like 2026-02-11T20:36:57Z (no microseconds)."""
@@ -151,7 +148,7 @@ def build_google_mirror_event(
     Build a Google Calendar event body that is informational-only:
       - no attendees field (avoids RSVP workflow)
       - stable iCalUID for idempotent upserts
-      - includes a human-visible MIRROR_MARKER and Zoho UID breadcrumb
+      - includes a human-visible Zoho UID breadcrumb in the description
       - duplicates join URL into description for usability
     """
     uid = zoho_uid(ev)
@@ -172,12 +169,8 @@ def build_google_mirror_event(
     if location and "Join:" not in desc:
         desc = (f"Join: {location}\n\n" + desc) if desc else f"Join: {location}"
 
-    # Keep the marker concept (human-visible + simple filtering)
-    if MIRROR_MARKER not in desc:
-        desc = (desc + "\n\n" if desc else "") + MIRROR_MARKER
-
-    # Add a breadcrumb back to the source UID
-    desc = desc + f"\nX-ZOHO-UID:{uid}"
+    # Add a breadcrumb back to the source UID (also serves as a human-visible mirror marker)
+    desc = (desc + "\n" if desc else "") + f"X-ZOHO-UID:{uid}"
 
     # iCalUID strategy:
     # - If Zoho's UID already includes a domain (e.g. ...@google.com), keep it verbatim.

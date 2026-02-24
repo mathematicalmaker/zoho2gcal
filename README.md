@@ -574,6 +574,7 @@ The **logging** block limits log size and rotation so the container doesn’t fi
 
 - Mirrored events have no `attendees` field (no RSVP, no Gmail exposure).
 - `extendedProperties.private.zoho_mirror` marks events for delete-missing.
+- Each mirrored event’s description includes an `X-ZOHO-UID:...` line as a human-visible breadcrumb back to the Zoho source UID.
 - `iCalUID` is stable for idempotent upserts.
 - Dry-run always checks for would-deletes; use `--delete-missing` to apply.
 
