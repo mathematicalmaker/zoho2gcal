@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   build-and-push:
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,7 +35,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/zoho2gcal
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,format=short,prefix=
             type=semver,pattern=v{{version}}
 
@@ -50,3 +51,29 @@ jobs:
           sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  tag-only:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add version tag to existing image
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          IMAGE="ghcr.io/${{ github.repository_owner }}/zoho2gcal"
+          VERSION_TAG="${IMAGE}:${{ github.ref_name }}"
+          docker buildx imagetools create --tag "$VERSION_TAG" "${IMAGE}:${SHORT_SHA}" --push
