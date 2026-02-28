@@ -7,6 +7,7 @@ secrets/*
 
 # Runtime state (created by z2g run; never bake into image)
 .z2g-alert-state.json
+.z2g-status.json
 
 # Python / build
 .venv/

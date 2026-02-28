@@ -28,6 +28,7 @@ from .config import PROJECT_ROOT, resolve_path
 
 
 DEFAULT_STATE_FILE = ".z2g-alert-state.json"
+DEFAULT_STATUS_FILE = ".z2g-status.json"
 
 
 def _get_state_path() -> Path:
@@ -65,6 +66,7 @@ def load_state() -> dict[str, Any]:
             "last_status": "ok",
             "consecutive_failures": 0,
             "last_alert_at": None,
+            "last_success": None,
         }
     try:
         with open(path, "r") as f:
@@ -74,10 +76,12 @@ def load_state() -> dict[str, Any]:
             "last_status": data.get("last_status", "ok"),
             "consecutive_failures": int(data.get("consecutive_failures", 0)),
             "last_alert_at": data.get("last_alert_at"),
+            "last_success": data.get("last_success"),
         }
     except Exception:
         return {
             "last_run": None,
+            "last_success": None,
             "last_status": "ok",
             "consecutive_failures": 0,
             "last_alert_at": None,
@@ -89,6 +93,34 @@ def save_state(state: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(state, f, indent=2)
+
+
+def _get_status_path() -> Path | None:
+    """Path for the status file (one-line JSON for host scripts). None if Z2G_STATUS_FILE is set to empty."""
+    raw = os.environ.get("Z2G_STATUS_FILE", DEFAULT_STATUS_FILE).strip()
+    if raw == "":
+        return None
+    state_dir = _get_state_path().parent
+    if raw != DEFAULT_STATUS_FILE:
+        return Path(resolve_path(raw))
+    return state_dir / DEFAULT_STATUS_FILE
+
+
+def write_status_file(state: dict[str, Any]) -> None:
+    """Write a one-line JSON status file for host scripts/cron (same dir as state by default)."""
+    path = _get_status_path()
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "last_run": state.get("last_run"),
+        "last_status": state.get("last_status", "ok"),
+        "consecutive_failures": state.get("consecutive_failures", 0),
+        "last_alert_at": state.get("last_alert_at"),
+        "last_success": state.get("last_success"),
+    }
+    with open(path, "w") as f:
+        json.dump(payload, f, separators=(",", ":"))
 
 
 def is_inside_alert_window(now: datetime | None = None) -> bool:

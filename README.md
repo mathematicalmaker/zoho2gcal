@@ -245,6 +245,7 @@ When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to
 |----------|---------|-------------|
 | `Z2G_ALERT_WEBHOOK_URL` | — | If set, POST failure and all-clear payloads to this URL |
 | `Z2G_ALERT_STATE_FILE` | `.z2g-alert-state.json` (under project root) | Path to state file for last run and failure count |
+| `Z2G_STATUS_FILE` | `.z2g-status.json` (same dir as state file) | Path for one-line JSON status file for host scripts; set empty to disable |
 | `Z2G_ALERT_MIN_FAILURES` | `2` | Send failure alert only after this many consecutive failures |
 | `Z2G_ALERT_RATE_HOURS` | `24` | Do not send another failure alert within this many hours of the last one. All-clear resets this so the next failure will alert. |
 | `Z2G_ALERT_HOURS_START` | — | Only send failure alerts when local time is in this window. Examples: 10 and 22 = 10am–10pm; 22 and 2 = 10pm–2am (overnight). **Requires** `Z2G_ALERT_TIMEZONE` so the window is in your local time. |
@@ -478,6 +479,61 @@ docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stdout")?'
 
 # With jq: errors only
 docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stderr")?'
+
+# Past 24h summary (successes, failures, time since last success)
+# Handles .time with Z or ±HH:MM. For jq 1.5 (e.g. Synology): use strptime/mktime; run with TZ=UTC for correct "time since".
+docker logs --since 24h z2g 2>&1 | TZ=UTC jq -R -s '
+  def to_epoch:
+    if endswith("Z") then (.[0:19] | . + "Z" | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime)
+    else
+      ((.[0:19] + "Z" | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime) + (if (.[19:20] == "-") then 1 else -1 end) * ((.[20:22] | tonumber) * 3600 + (.[23:25] | tonumber) * 60))
+    end;
+  [split("\n")[] | select(length>0) | fromjson? | select(.!=null)] |
+  (map(select(.msg == "job succeeded")) | length) as $ok |
+  (map(select(.level == "error")) | length) as $err |
+  (map(select(.msg == "job succeeded")) | last) as $last_ok |
+  (if $last_ok then (now - ($last_ok.time | to_epoch)) | floor else null end) as $secs |
+  (if $secs != null then (($secs / 3600) | floor) as $h | (($secs % 3600) / 60 | floor) as $m | "\($h)h \($m)m ago" else "n/a" end) as $ago |
+  "Past 24h: \($ok) succeeded, \($err) failed. Last success: \($ago)"
+' -r
+
+# Time since last successful run only (use --since 48h or more if cron is sparse)
+docker logs --since 48h z2g 2>&1 | TZ=UTC jq -R -s '
+  def to_epoch:
+    if endswith("Z") then (.[0:19] | . + "Z" | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime)
+    else
+      ((.[0:19] + "Z" | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime) + (if (.[19:20] == "-") then 1 else -1 end) * ((.[20:22] | tonumber) * 3600 + (.[23:25] | tonumber) * 60))
+    end;
+  [split("\n")[] | select(length>0) | fromjson? | select(.!=null)] |
+  (map(select(.msg == "job succeeded")) | last) as $last |
+  (if $last then (now - ($last.time | to_epoch)) | floor else null end) as $secs |
+  (if $secs != null then (($secs / 3600) | floor) as $h | (($secs % 3600) / 60 | floor) as $m | "\($h)h \($m)m ago" else "no successful run in window" end)
+' -r
+```
+
+### Status file (for host scripts / cron)
+
+When **`run`** is used, z2g writes a **status file** next to the alert state file (e.g. in your mounted data dir) so host scripts or cron can read status without parsing Docker logs. Default path: **`.z2g-status.json`** (same directory as `.z2g-alert-state.json`). Set **`Z2G_STATUS_FILE=`** (empty) to disable.
+
+**Format:** one-line JSON, updated after every run (success or failure):
+
+- `last_run` — ISO timestamp of last run (UTC)
+- `last_status` — `"ok"` or `"error"`
+- `consecutive_failures` — number of consecutive failures
+- `last_alert_at` — ISO timestamp when a failure alert was last sent, or `null`
+- `last_success` — ISO timestamp of last successful run (UTC), or `null`
+
+**Example (host OS, data dir mounted at `./data`):**
+
+```bash
+# Show status
+cat data/.z2g-status.json
+
+# Last status only (e.g. for scripts)
+jq -r '.last_status' data/.z2g-status.json
+
+# Last success time
+jq -r '.last_success' data/.z2g-status.json
 ```
 
 ### Healthcheck

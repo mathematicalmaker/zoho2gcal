@@ -1,4 +1,5 @@
 """Unit tests for z2g.alerting."""
+import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -118,6 +119,7 @@ def test_load_state_missing_file(tmp_path, monkeypatch):
     assert state["last_status"] == "ok"
     assert state["consecutive_failures"] == 0
     assert state["last_alert_at"] is None
+    assert state["last_success"] is None
 
 
 def test_save_state_load_state_round_trip(tmp_path, monkeypatch):
@@ -127,6 +129,7 @@ def test_save_state_load_state_round_trip(tmp_path, monkeypatch):
         "last_status": "error",
         "consecutive_failures": 2,
         "last_alert_at": "2026-02-13T12:00:00+00:00",
+        "last_success": "2026-02-13T10:00:00+00:00",
     }
     alerting.save_state(written)
     loaded = alerting.load_state()
@@ -134,3 +137,24 @@ def test_save_state_load_state_round_trip(tmp_path, monkeypatch):
     assert loaded["last_status"] == written["last_status"]
     assert loaded["consecutive_failures"] == written["consecutive_failures"]
     assert loaded["last_alert_at"] == written["last_alert_at"]
+    assert loaded["last_success"] == written["last_success"]
+
+
+def test_write_status_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("Z2G_ALERT_STATE_FILE", str(tmp_path / "state.json"))
+    state = {
+        "last_run": "2026-02-13T14:00:00+00:00",
+        "last_status": "ok",
+        "consecutive_failures": 0,
+        "last_alert_at": None,
+        "last_success": "2026-02-13T14:00:00+00:00",
+    }
+    alerting.save_state(state)
+    alerting.write_status_file(state)
+    status_path = tmp_path / ".z2g-status.json"
+    assert status_path.exists()
+    raw = status_path.read_text()
+    assert "\n" not in raw.strip()
+    data = json.loads(raw)
+    assert data["last_status"] == "ok"
+    assert data["last_success"] == "2026-02-13T14:00:00+00:00"
