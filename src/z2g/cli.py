@@ -328,7 +328,6 @@ def cmd_run(
                 )
                 state["last_alert_at"] = None
                 alerting.save_state(state)
-                alerting.write_status_file(state)
                 print("z2g: all-clear sent (webhook)")
             except Exception as webhook_err:
                 print(f"z2g: webhook (all-clear) failed: {webhook_err}", file=sys.stderr)
@@ -336,6 +335,7 @@ def cmd_run(
         state["last_status"] = "error"
         state["consecutive_failures"] = state.get("consecutive_failures", 0) + 1
         alerting.save_state(state)
+        alerting.append_run(now_iso, "error")
         alerting.write_status_file(state)
         if url and alerting.should_alert(state, now):
             payload = alerting.build_payload(
@@ -348,6 +348,7 @@ def cmd_run(
                 alerting.send_webhook(url, payload)
                 state["last_alert_at"] = now_iso
                 alerting.save_state(state)
+                alerting.append_run(now_iso, "error")
                 alerting.write_status_file(state)
                 print("z2g: alert sent (webhook)")
             except Exception as webhook_err:
@@ -373,6 +374,7 @@ def cmd_run(
     state["consecutive_failures"] = 0
     state["last_success"] = now_iso
     alerting.save_state(state)
+    alerting.append_run(now_iso, "ok")
     alerting.write_status_file(state)
 
 

@@ -1,7 +1,7 @@
 """Unit tests for z2g.alerting."""
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -140,6 +140,25 @@ def test_save_state_load_state_round_trip(tmp_path, monkeypatch):
     assert loaded["last_success"] == written["last_success"]
 
 
+def test_append_run_and_get_24h_counts(tmp_path, monkeypatch):
+    monkeypatch.setenv("Z2G_ALERT_STATE_FILE", str(tmp_path / "state.json"))
+    # No log yet
+    assert alerting.get_24h_counts() == (0, 0)
+    # Append a few runs (use recent-ish timestamps so they're inside 24h)
+    now = datetime.now(timezone.utc)
+    t1 = (now - timedelta(hours=1)).isoformat()
+    t2 = (now - timedelta(minutes=30)).isoformat()
+    alerting.append_run(t1, "ok")
+    alerting.append_run(t2, "error")
+    alerting.append_run(now.isoformat(), "ok")
+    successes, failures = alerting.get_24h_counts()
+    assert successes == 2
+    assert failures == 1
+    # Run log exists and is pruned (only recent lines kept)
+    log_path = tmp_path / ".z2g-runs.log"
+    assert log_path.exists()
+
+
 def test_write_status_file(tmp_path, monkeypatch):
     monkeypatch.setenv("Z2G_ALERT_STATE_FILE", str(tmp_path / "state.json"))
     state = {
@@ -158,3 +177,6 @@ def test_write_status_file(tmp_path, monkeypatch):
     data = json.loads(raw)
     assert data["last_status"] == "ok"
     assert data["last_success"] == "2026-02-13T14:00:00+00:00"
+    assert "successes_24h" in data
+    assert "failures_24h" in data
+    assert "time_since_last_success_seconds" in data

@@ -480,7 +480,7 @@ docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stdout")?'
 # With jq: errors only
 docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stderr")?'
 
-# Past 24h summary (successes, failures, time since last success)
+# Past 24h summary (successes, failures, time since last success) — or read .z2g-status.json (see Status file below)
 # Handles .time with Z or ±HH:MM. For jq 1.5 (e.g. Synology): use strptime/mktime; run with TZ=UTC for correct "time since".
 docker logs --since 24h z2g 2>&1 | TZ=UTC jq -R -s '
   def to_epoch:
@@ -513,27 +513,38 @@ docker logs --since 48h z2g 2>&1 | TZ=UTC jq -R -s '
 
 ### Status file (for host scripts / cron)
 
-When **`run`** is used, z2g writes a **status file** next to the alert state file (e.g. in your mounted data dir) so host scripts or cron can read status without parsing Docker logs. Default path: **`.z2g-status.json`** (same directory as `.z2g-alert-state.json`). Set **`Z2G_STATUS_FILE=`** (empty) to disable.
+When **`run`** is used, z2g writes a **status file** so host scripts or cron can read **current health and a 24h summary** without parsing Docker logs or using the complex jq commands above. Default path: **`.z2g-status.json`** (same directory as `.z2g-alert-state.json`). Set **`Z2G_STATUS_FILE=`** (empty) to disable.
 
-**Format:** one-line JSON, updated after every run (success or failure):
+z2g keeps a small run-history log (`.z2g-runs.log`, same dir) with one line per run (`timestamp\tok` or `timestamp\terror`), pruned to the last 48 hours. The status file is one-line JSON with:
+
+**Current health**
 
 - `last_run` — ISO timestamp of last run (UTC)
 - `last_status` — `"ok"` or `"error"`
-- `consecutive_failures` — number of consecutive failures
+- `consecutive_failures` — number of consecutive failures (since last success)
 - `last_alert_at` — ISO timestamp when a failure alert was last sent, or `null`
 - `last_success` — ISO timestamp of last successful run (UTC), or `null`
+- `time_since_last_success_seconds` — seconds since last successful run, or `null` if none
+
+**Past 24 hours**
+
+- `successes_24h` — number of successful runs in the last 24 hours
+- `failures_24h` — number of failed runs in the last 24 hours
 
 **Example (host OS, data dir mounted at `./data`):**
 
 ```bash
-# Show status
+# Full status (current health + 24h summary)
 cat data/.z2g-status.json
 
-# Last status only (e.g. for scripts)
+# Current status only
 jq -r '.last_status' data/.z2g-status.json
 
-# Last success time
-jq -r '.last_success' data/.z2g-status.json
+# 24h summary only
+jq -r '"\(.successes_24h) succeeded, \(.failures_24h) failed (24h)"' data/.z2g-status.json
+
+# Time since last success (seconds)
+jq -r '.time_since_last_success_seconds' data/.z2g-status.json
 ```
 
 ### Healthcheck

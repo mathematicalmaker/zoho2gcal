@@ -29,6 +29,8 @@ from .config import PROJECT_ROOT, resolve_path
 
 DEFAULT_STATE_FILE = ".z2g-alert-state.json"
 DEFAULT_STATUS_FILE = ".z2g-status.json"
+RUNS_LOG_FILE = ".z2g-runs.log"
+RUNS_LOG_MAX_AGE_HOURS = 48
 
 
 def _get_state_path() -> Path:
@@ -95,6 +97,77 @@ def save_state(state: dict[str, Any]) -> None:
         json.dump(state, f, indent=2)
 
 
+def _get_runs_log_path() -> Path:
+    """Path for the append-only run history (timestamp + ok/error per line) for 24h counts."""
+    return _get_state_path().parent / RUNS_LOG_FILE
+
+
+def _parse_iso_to_utc_ts(iso_str: str | None) -> float | None:
+    """Parse ISO timestamp to UTC epoch seconds, or None if invalid."""
+    if not iso_str:
+        return None
+    try:
+        s = iso_str.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+    except Exception:
+        return None
+
+
+def append_run(timestamp_iso: str, status: str) -> None:
+    """Append one run to the history log and prune entries older than RUNS_LOG_MAX_AGE_HOURS."""
+    path = _get_runs_log_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = f"{timestamp_iso}\t{status}\n"
+    with open(path, "a") as f:
+        f.write(line)
+    # Prune old lines so the file doesn't grow unbounded
+    now_ts = datetime.now(timezone.utc).timestamp()
+    cutoff = now_ts - (RUNS_LOG_MAX_AGE_HOURS * 3600)
+    try:
+        with open(path, "r") as f:
+            lines = f.readlines()
+        kept = []
+        for ln in lines:
+            part = ln.strip().split("\t")
+            if len(part) >= 2:
+                ts = _parse_iso_to_utc_ts(part[0])
+                if ts is not None and ts >= cutoff:
+                    kept.append(ln)
+        if len(kept) < len(lines):
+            with open(path, "w") as f:
+                f.writelines(kept)
+    except Exception:
+        pass
+
+
+def get_24h_counts() -> tuple[int, int]:
+    """Return (successes_24h, failures_24h) from the run history log."""
+    path = _get_runs_log_path()
+    if not path.exists():
+        return 0, 0
+    now_ts = datetime.now(timezone.utc).timestamp()
+    cutoff = now_ts - (24 * 3600)
+    successes = 0
+    failures = 0
+    try:
+        with open(path, "r") as f:
+            for ln in f:
+                part = ln.strip().split("\t")
+                if len(part) >= 2:
+                    ts = _parse_iso_to_utc_ts(part[0])
+                    if ts is not None and ts >= cutoff:
+                        if part[1].strip().lower() == "ok":
+                            successes += 1
+                        else:
+                            failures += 1
+    except Exception:
+        pass
+    return successes, failures
+
+
 def _get_status_path() -> Path | None:
     """Path for the status file (one-line JSON for host scripts). None if Z2G_STATUS_FILE is set to empty."""
     raw = os.environ.get("Z2G_STATUS_FILE", DEFAULT_STATUS_FILE).strip()
@@ -107,17 +180,25 @@ def _get_status_path() -> Path | None:
 
 
 def write_status_file(state: dict[str, Any]) -> None:
-    """Write a one-line JSON status file for host scripts/cron (same dir as state by default)."""
+    """Write a one-line JSON status file: current health + successes/failures in past 24h (for host scripts without docker logs jq)."""
     path = _get_status_path()
     if path is None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
+    successes_24h, failures_24h = get_24h_counts()
+    last_success = state.get("last_success")
+    now_ts = datetime.now(timezone.utc).timestamp()
+    last_success_ts = _parse_iso_to_utc_ts(last_success) if last_success else None
+    time_since_last_success_seconds: float | None = (now_ts - last_success_ts) if last_success_ts is not None else None
     payload = {
         "last_run": state.get("last_run"),
         "last_status": state.get("last_status", "ok"),
         "consecutive_failures": state.get("consecutive_failures", 0),
         "last_alert_at": state.get("last_alert_at"),
-        "last_success": state.get("last_success"),
+        "last_success": last_success,
+        "successes_24h": successes_24h,
+        "failures_24h": failures_24h,
+        "time_since_last_success_seconds": round(time_since_last_success_seconds, 1) if time_since_last_success_seconds is not None else None,
     }
     with open(path, "w") as f:
         json.dump(payload, f, separators=(",", ":"))

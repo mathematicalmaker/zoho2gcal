@@ -66,3 +66,4 @@ images/orig/
 ########################################
 .z2g-alert-state.json
 .z2g-status.json
+.z2g-runs.log
