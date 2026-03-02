@@ -245,7 +245,7 @@ When **`run`** is used and sync fails repeatedly, z2g can POST a JSON payload to
 |----------|---------|-------------|
 | `Z2G_ALERT_WEBHOOK_URL` | — | If set, POST failure and all-clear payloads to this URL |
 | `Z2G_ALERT_STATE_FILE` | `.z2g-alert-state.json` (under project root) | Path to state file for last run and failure count |
-| `Z2G_STATUS_FILE` | `.z2g-status.json` (same dir as state file) | Path for one-line JSON status file for host scripts; set empty to disable |
+| `Z2G_STATUS_FILE` | `.z2g-status.txt` (same dir as state file) | Path for plain-text status file (local time); set empty to disable |
 | `Z2G_ALERT_MIN_FAILURES` | `2` | Send failure alert only after this many consecutive failures |
 | `Z2G_ALERT_RATE_HOURS` | `24` | Do not send another failure alert within this many hours of the last one. All-clear resets this so the next failure will alert. |
 | `Z2G_ALERT_HOURS_START` | — | Only send failure alerts when local time is in this window. Examples: 10 and 22 = 10am–10pm; 22 and 2 = 10pm–2am (overnight). **Requires** `Z2G_ALERT_TIMEZONE` so the window is in your local time. |
@@ -480,7 +480,7 @@ docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stdout")?'
 # With jq: errors only
 docker logs z2g 2>&1 | jq -R -c 'fromjson? | select(.channel == "stderr")?'
 
-# Past 24h summary (successes, failures, time since last success) — or read .z2g-status.json (see Status file below)
+# Past 24h summary (successes, failures, time since last success) — or read .z2g-status.txt (see Status file below)
 # Handles .time with Z or ±HH:MM. For jq 1.5 (e.g. Synology): use strptime/mktime; run with TZ=UTC for correct "time since".
 docker logs --since 24h z2g 2>&1 | TZ=UTC jq -R -s '
   def to_epoch:
@@ -513,38 +513,35 @@ docker logs --since 48h z2g 2>&1 | TZ=UTC jq -R -s '
 
 ### Status file (for host scripts / cron)
 
-When **`run`** is used, z2g writes a **status file** so host scripts or cron can read **current health and a 24h summary** without parsing Docker logs or using the complex jq commands above. Default path: **`.z2g-status.json`** (same directory as `.z2g-alert-state.json`). Set **`Z2G_STATUS_FILE=`** (empty) to disable.
+When **`run`** is used, z2g writes a **plain-text status file** so host scripts or cron can read **current health and a 24h summary** without parsing Docker logs or using jq. All timestamps are in **local time** (Z2G_ALERT_TIMEZONE). Default path: **`.z2g-status.txt`** (same directory as `.z2g-alert-state.json`). Set **`Z2G_STATUS_FILE=`** (empty) to disable.
 
-z2g keeps a small run-history log (`.z2g-runs.log`, same dir) with one line per run (`timestamp\tok` or `timestamp\terror`), pruned to the last 48 hours. The status file is one-line JSON with:
+z2g keeps a small run-history log (`.z2g-runs.log`, same dir) with one line per run; the status file is human-readable text with ✅ HEALTHY / ❌ ALERT, current status, last success and last run times (local), and past 24h success/failure counts.
 
-**Current health**
+**Example output:**
 
-- `last_run` — ISO timestamp of last run (UTC)
-- `last_status` — `"ok"` or `"error"`
-- `consecutive_failures` — number of consecutive failures (since last success)
-- `last_alert_at` — ISO timestamp when a failure alert was last sent, or `null`
-- `last_success` — ISO timestamp of last successful run (UTC), or `null`
-- `time_since_last_success_seconds` — seconds since last successful run, or `null` if none
+```
+SYSTEM STATUS: ✅ HEALTHY
+-------------------------------------------
+Current Status:   OK
+Last Success:     2026-03-01 18:30:00 (Local Time)
+Last Run:         2026-03-01 18:30:00
 
-**Past 24 hours**
-
-- `successes_24h` — number of successful runs in the last 24 hours
-- `failures_24h` — number of failed runs in the last 24 hours
+PAST 24 HOURS:
+-------------------------------------------
+Successes:        18
+Failures:         0
+Consecutive Fails: 0
+-------------------------------------------
+```
 
 **Example (host OS, data dir mounted at `./data`):**
 
 ```bash
-# Full status (current health + 24h summary)
-cat data/.z2g-status.json
+# View full status (no jq needed)
+cat data/.z2g-status.txt
 
-# Current status only
-jq -r '.last_status' data/.z2g-status.json
-
-# 24h summary only
-jq -r '"\(.successes_24h) succeeded, \(.failures_24h) failed (24h)"' data/.z2g-status.json
-
-# Time since last success (seconds)
-jq -r '.time_since_last_success_seconds' data/.z2g-status.json
+# Check health in a script (e.g. grep for ALERT)
+grep -q "HEALTHY" data/.z2g-status.txt && echo "ok" || echo "alert"
 ```
 
 ### Healthcheck

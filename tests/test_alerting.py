@@ -170,13 +170,25 @@ def test_write_status_file(tmp_path, monkeypatch):
     }
     alerting.save_state(state)
     alerting.write_status_file(state)
-    status_path = tmp_path / ".z2g-status.json"
+    status_path = tmp_path / ".z2g-status.txt"
     assert status_path.exists()
-    raw = status_path.read_text()
-    assert "\n" not in raw.strip()
-    data = json.loads(raw)
-    assert data["last_status"] == "ok"
-    assert data["last_success"] == "2026-02-13T14:00:00+00:00"
-    assert "successes_24h" in data
-    assert "failures_24h" in data
-    assert "time_since_last_success_seconds" in data
+    text = status_path.read_text()
+    assert "SYSTEM STATUS:" in text
+    assert "✅" in text
+    assert "HEALTHY" in text
+    assert "Current Status:   OK" in text
+    assert "Last Success:" in text
+    assert "PAST 24 HOURS:" in text
+    assert "Successes:" in text
+    assert "Failures:" in text
+    assert "Consecutive Fails:" in text
+
+    # Error state: ALERT and ❌
+    state["last_status"] = "error"
+    state["consecutive_failures"] = 2
+    alerting.write_status_file(state)
+    text = status_path.read_text()
+    assert "❌" in text
+    assert "ALERT" in text
+    assert "Current Status:   ERROR" in text
+    assert "Consecutive Fails: 2" in text

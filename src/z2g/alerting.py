@@ -28,7 +28,7 @@ from .config import PROJECT_ROOT, resolve_path
 
 
 DEFAULT_STATE_FILE = ".z2g-alert-state.json"
-DEFAULT_STATUS_FILE = ".z2g-status.json"
+DEFAULT_STATUS_FILE = ".z2g-status.txt"
 RUNS_LOG_FILE = ".z2g-runs.log"
 RUNS_LOG_MAX_AGE_HOURS = 48
 
@@ -168,8 +168,20 @@ def get_24h_counts() -> tuple[int, int]:
     return successes, failures
 
 
+def _format_iso_to_local(iso_utc: str | None) -> str:
+    """Format an ISO UTC timestamp as 'YYYY-MM-DD HH:MM:SS' in Z2G_ALERT_TIMEZONE, or 'n/a' if missing."""
+    if not iso_utc:
+        return "n/a"
+    ts = _parse_iso_to_utc_ts(iso_utc)
+    if ts is None:
+        return "n/a"
+    utc_dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+    local = utc_dt.astimezone(_get_tz()).replace(microsecond=0)
+    return local.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def _get_status_path() -> Path | None:
-    """Path for the status file (one-line JSON for host scripts). None if Z2G_STATUS_FILE is set to empty."""
+    """Path for the plain-text status file for host scripts. None if Z2G_STATUS_FILE is set to empty."""
     raw = os.environ.get("Z2G_STATUS_FILE", DEFAULT_STATUS_FILE).strip()
     if raw == "":
         return None
@@ -180,28 +192,38 @@ def _get_status_path() -> Path | None:
 
 
 def write_status_file(state: dict[str, Any]) -> None:
-    """Write a one-line JSON status file: current health + successes/failures in past 24h (for host scripts without docker logs jq)."""
+    """Write a plain-text status file (local timezone): current health + 24h summary. No jq needed."""
     path = _get_status_path()
     if path is None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     successes_24h, failures_24h = get_24h_counts()
-    last_success = state.get("last_success")
-    now_ts = datetime.now(timezone.utc).timestamp()
-    last_success_ts = _parse_iso_to_utc_ts(last_success) if last_success else None
-    time_since_last_success_seconds: float | None = (now_ts - last_success_ts) if last_success_ts is not None else None
-    payload = {
-        "last_run": state.get("last_run"),
-        "last_status": state.get("last_status", "ok"),
-        "consecutive_failures": state.get("consecutive_failures", 0),
-        "last_alert_at": state.get("last_alert_at"),
-        "last_success": last_success,
-        "successes_24h": successes_24h,
-        "failures_24h": failures_24h,
-        "time_since_last_success_seconds": round(time_since_last_success_seconds, 1) if time_since_last_success_seconds is not None else None,
-    }
+    last_status = state.get("last_status", "ok")
+    healthy = last_status == "ok"
+    status_label = "HEALTHY" if healthy else "ALERT"
+    icon = "✅" if healthy else "❌"
+    current_status = "OK" if healthy else "ERROR"
+    last_success_fmt = _format_iso_to_local(state.get("last_success"))
+    last_run_fmt = _format_iso_to_local(state.get("last_run"))
+    consecutive = state.get("consecutive_failures", 0)
+
+    lines = [
+        f"SYSTEM STATUS: {icon} {status_label}",
+        "-------------------------------------------",
+        f"Current Status:   {current_status}",
+        f"Last Success:     {last_success_fmt} (Local Time)",
+        f"Last Run:         {last_run_fmt}",
+        "",
+        "PAST 24 HOURS:",
+        "-------------------------------------------",
+        f"Successes:        {successes_24h}",
+        f"Failures:         {failures_24h}",
+        f"Consecutive Fails: {consecutive}",
+        "-------------------------------------------",
+        "",
+    ]
     with open(path, "w") as f:
-        json.dump(payload, f, separators=(",", ":"))
+        f.write("\n".join(lines))
 
 
 def is_inside_alert_window(now: datetime | None = None) -> bool:
